@@ -1339,6 +1339,27 @@ export const HODL_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
+
+const TIGER_BLOOD_MEMECOIN_ASSET_ID_MAINNET = '95430751e3894b48820b7da497f04abd0e46fe6d982fa98daf174ff1e35159bd'
+const TIGER_BLOOD_MEMECOIN_ADDRESS_BASE_MAINNET = '0xD999c5E89018a28deA05607837DD5DD6de26d907'
+
+export const TIGER_BLOOD_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '🐯🩸',
+  getSpecificSymbol: makeCoinsetNativeToken('🐯🩸'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: TIGER_BLOOD_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: TIGER_BLOOD_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
+
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
   XCH_TOKEN,
@@ -1357,6 +1378,7 @@ export const TOKENS = TESTNET ? [
   MANA_MEMECOIN_TOKEN_BASE_ONLY,
   HOA_MEMECOIN_TOKEN_BASE_ONLY,
   tREE31000_MEMECOIN_TOKEN_BASE_ONLY,
+  TIGER_BLOOD_MEMECOIN_TOKEN_BASE_ONLY,
   BEPE_MEMECOIN_TOKEN_BASE_ONLY,
   PP_MEMECOIN_TOKEN_BASE_ONLY,
   NECK_MEMECOIN_TOKEN_BASE_ONLY,
