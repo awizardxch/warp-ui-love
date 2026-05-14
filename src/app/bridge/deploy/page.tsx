@@ -29,7 +29,7 @@ function ActualDeployPage() {
   const [name, setName] = useState('');
   const [predictedContractAddress, setPredictedContractAddress] = useState('');
 
-  const dataCompleted = assetId.length === 64 && chiaSymbol.length >= 2 && name.length > 0;
+  const dataCompleted = assetId.length === 64 && Array.from(chiaSymbol).length >= 1 && name.length > 0;
 
   // Convert symbol to Unicode code points
 const convertSymbolToUnicode = (symbol: string) => {
