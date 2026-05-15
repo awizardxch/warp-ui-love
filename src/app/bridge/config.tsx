@@ -1320,7 +1320,7 @@ export const byc_wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
-const bytecash_MEMECOIN_ASSET_ID_MAINNET = '4e06e576de21497f13da17908b8dd80ff94df717632d2ff7c703144c5d549385'
+const wizard_bucks_MEMECOIN_ASSET_ID_MAINNET = '4e06e576de21497f13da17908b8dd80ff94df717632d2ff7c703144c5d549385'
 const wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET = '0x39916e508e389FBB4dDC3d1a38a5801f4eE253c7'
 
 export const wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
@@ -1331,7 +1331,7 @@ export const wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
     {
       evmNetworkId: BASE_NETWORK.id,
       coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: bytecash_MEMECOIN_ASSET_ID_MAINNET,
+      assetId: wizard_bucks_MEMECOIN_ASSET_ID_MAINNET,
       contractAddress: wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET
     },
   ],
