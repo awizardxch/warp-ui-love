@@ -1326,7 +1326,7 @@ const wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET = '0x39916e508e389FBB4dDC3d1a38
 export const wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   symbol: '🧙‍♂️💸',
   getSpecificSymbol: makeCoinsetNativeToken('🧙‍♂️💸'),
-  sourceNetworkType: NetworkType.COINSET,
+  sourceNetworkType: NetworkType.EVM,
   supported: [
     {
       evmNetworkId: BASE_NETWORK.id,
