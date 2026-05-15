@@ -1302,6 +1302,25 @@ export const IYKYK_XCH_MEMECOIN_TOKEN_BASE_ONLY: Token = {
 }
 
 const bytecash_MEMECOIN_ASSET_ID_MAINNET = 'ae1536f56760e471ad85ead45f00d680ff9cca73b8cc3407be778f1c0c606eac'
+const byc_wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET = '0x39916e508e389FBB4dDC3d1a38a5801f4eE253c7'
+
+export const byc_wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: 'BYC-🧙‍♂️💸',
+  getSpecificSymbol: makeCoinsetNativeToken('BYC-🧙‍♂️💸'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: bytecash_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: byc_wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
+const bytecash_MEMECOIN_ASSET_ID_MAINNET = '4e06e576de21497f13da17908b8dd80ff94df717632d2ff7c703144c5d549385'
 const wizard_bucks_MEMECOIN_ADDRESS_BASE_MAINNET = '0x39916e508e389FBB4dDC3d1a38a5801f4eE253c7'
 
 export const wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY: Token = {
@@ -1390,6 +1409,7 @@ export const TOKENS = TESTNET ? [
   SP_MEMECOIN_TOKEN_BASE_ONLY,
   HODL_MEMECOIN_TOKEN_BASE_ONLY,
   wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY,
+  byc_wizard_bucks_MEMECOIN_TOKEN_BASE_ONLY,
   LOVE_MEMECOIN_TOKEN_BASE_ONLY,
   SPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   PIZZA_MEMECOIN_TOKEN_BASE_ONLY,
