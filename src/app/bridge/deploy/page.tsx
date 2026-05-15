@@ -10,6 +10,7 @@ import { BASE_NETWORK, CHIA_NETWORK } from "../config";
 import { concat, ContractFactory, getCreate2Address, hexlify, Interface, keccak256, parseEther, sha256, solidityPacked, toUtf8Bytes } from "ethers";
 import { MultiSendABI, WrappedCATABI, WrappedCATBytecode } from "../drivers/abis";
 import { getLockerPuzzle, getUnlockerPuzzle } from "../drivers/catbridge";
+import { getWrappedERC20AssetID } from "../drivers/erc20bridge";
 
 export default function DeployPage() {
   return (
@@ -28,6 +29,27 @@ function ActualDeployPage() {
   const [convertedSymbol, setConvertedSymbol] = useState('');
   const [name, setName] = useState('');
   const [predictedContractAddress, setPredictedContractAddress] = useState('');
+
+  const [erc20Address, setErc20Address] = useState('');
+  const [computedChiaAssetId, setComputedChiaAssetId] = useState('');
+  const [erc20AddressError, setErc20AddressError] = useState('');
+
+  const computeChiaAssetId = () => {
+    const addr = erc20Address.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+      setErc20AddressError('Invalid ERC20 address. Must be a 0x-prefixed 40-character hex address.');
+      setComputedChiaAssetId('');
+      return;
+    }
+    setErc20AddressError('');
+    try {
+      const assetIdHex = getWrappedERC20AssetID(BASE_NETWORK, addr.slice(2));
+      setComputedChiaAssetId(assetIdHex);
+    } catch (e) {
+      setErc20AddressError('Failed to compute asset ID. Check that BASE_NETWORK is configured correctly.');
+      setComputedChiaAssetId('');
+    }
+  };
 
   const dataCompleted = assetId.length === 64 && Array.from(chiaSymbol).length >= 1 && name.length > 0;
 
@@ -209,6 +231,50 @@ const convertSymbolToUnicode = (symbol: string) => {
 
         {chiaSymbol && (
           <p>Unicode representation (for testing): {convertSymbolToUnicode(chiaSymbol)}</p>
+        )}
+      </div>
+
+      <div className="rounded-lg flex flex-col gap-4 p-6 mt-4 border-t border-border">
+        <h1 className="text-2xl font-bold">ERC20 → Chia Asset ID Calculator</h1>
+        <p className="text-muted-foreground mb-4">
+          Enter any Base ERC20 contract address to compute the Chia wrapped asset ID (TAIL hash).
+          Use this ID when adding the token to the bridge token list in <code>config.tsx</code>.
+        </p>
+
+        <p>Base ERC20 contract address:</p>
+        <div className="flex items-center h-14 w-full gap-2 mb-2">
+          <Input
+            type="text"
+            placeholder="0x..."
+            className="text-xl h-full border-0 font-mono"
+            value={erc20Address}
+            onChange={(e) => { setErc20Address(e.target.value); setComputedChiaAssetId(''); setErc20AddressError(''); }}
+          />
+        </div>
+
+        {erc20AddressError && (
+          <p className="text-red-500 text-sm">{erc20AddressError}</p>
+        )}
+
+        <div className="mx-8 flex justify-center mb-2">
+          <Button
+            type="button"
+            className="w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
+            onClick={computeChiaAssetId}
+            disabled={erc20Address.trim().length === 0}
+          >
+            Compute Chia Asset ID
+          </Button>
+        </div>
+
+        {computedChiaAssetId && (
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-muted-foreground">Chia Wrapped Asset ID (TAIL hash):</p>
+            <p className="font-mono text-sm break-all bg-muted rounded p-3 select-all">{computedChiaAssetId}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add this as <code>assetId</code> and <code>{erc20Address}</code> as <code>contractAddress</code> in a new token entry in <code>config.tsx</code>.
+            </p>
+          </div>
         )}
       </div>
     </div>
