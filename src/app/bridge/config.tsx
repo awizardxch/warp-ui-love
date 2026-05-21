@@ -1397,6 +1397,26 @@ export const NO_IDEA_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
+const CHOCO_TACO_MEMECOIN_ASSET_ID_MAINNET = '8df67763ad273f4a08f8f19f8a172d80b38ad940f32fe20b0b2ed3d665edf575'
+const CHOCO_TACO_MEMECOIN_ADDRESS_BASE_MAINNET = '0xBaB8a1AD71710d62e7E4c2F56c299422C6187c38'
+
+export const CHOCO_TACO_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '🍫🌮',
+  getSpecificSymbol: makeCoinsetNativeToken('🍫🌮'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: CHOCO_TACO_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: CHOCO_TACO_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
+
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
   XCH_TOKEN,
@@ -1413,6 +1433,7 @@ export const TOKENS = TESTNET ? [
   LOVE_MEMECOIN_TOKEN_BASE_ONLY,
   SPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   PIZZA_MEMECOIN_TOKEN_BASE_ONLY,
+  CHOCO_TACO_MEMECOIN_TOKEN_BASE_ONLY,
   MANA_MEMECOIN_TOKEN_BASE_ONLY,
   HOA_MEMECOIN_TOKEN_BASE_ONLY,
   tREE31000_MEMECOIN_TOKEN_BASE_ONLY,
