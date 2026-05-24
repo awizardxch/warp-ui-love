@@ -1416,6 +1416,62 @@ export const CHOCO_TACO_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
+const HORSE_MEMECOIN_ASSET_ID_BASE_MAINNET = '1efff18fedcdb63818a1b41ab3e977707bc314a090e7ea5db396a56095290604'
+const HORSE_MEMECOIN_ADDRESS_BASE_MAINNET = '0x827fc57Bc514578E8280cEE73f5e948D306aF074'
+
+export const HORSE_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '$HORSE',
+  getSpecificSymbol: makeCoinsetNativeToken('$HORSE'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: HORSE_MEMECOIN_ASSET_ID_BASE_MAINNET,
+      contractAddress: HORSE_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
+const BYC_ASSET_ID_BASE_MAINNET = 'ae1536f56760e471ad85ead45f00d680ff9cca73b8cc3407be778f1c0c606eac'
+const BYC_ADDRESS_BASE_MAINNET = '0x16b13A47B0C535EFaE58675e0657d3C22471cdA8'
+
+export const BYC_TOKEN_BASE_ONLY: Token = {
+  symbol: 'BYC',
+  getSpecificSymbol: makeCoinsetNativeToken('BYC'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: BYC_ASSET_ID_BASE_MAINNET,
+      contractAddress: BYC_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: false,
+  additionalWarning: "The CircuitDAO protocol, currently in beta, is responsible for maintaining BYC's peg. Listing on this interface does NOT represent endorsement from the warp.green team. Do your own research before transacting with BYC.",
+}
+
+const MINUTES_MEMECOIN_ASSET_ID_BASE_MAINNET = '8fac6c37fa3bf95bdb2e473df9839fa5f50580c7bad8b6ea13ad201b695b9398'
+const MINUTES_MEMECOIN_ADDRESS_BASE_MAINNET = '0x75fE74892c15b9cfddbCD24C388d07a3c8c7D7c6'
+
+export const MINUTES_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: 'MINUTES',
+  getSpecificSymbol: makeCoinsetNativeToken('MINUTES'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: MINUTES_MEMECOIN_ASSET_ID_BASE_MAINNET,
+      contractAddress: MINUTES_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
 
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
@@ -1448,7 +1504,6 @@ export const TOKENS = TESTNET ? [
   ogSPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   ogPIZZA_MEMECOIN_TOKEN_BASE_ONLY,
   ogHOA_TOKEN_BASE_ONLY,
-
   //USDC_TOKEN_MAINNET_ONLY,
   //ETH_TOKEN,
   //XCH_TOKEN,
@@ -1483,7 +1538,10 @@ export const TOKENS = TESTNET ? [
   COOKIES_MEMECOIN_TOKEN_BASE_ONLY,
   HonK_MEMECOIN_TOKEN_BASE_ONLY,
   GOLD_MEMECOIN_TOKEN_BASE_ONLY,
-  MOG_MEMECOIN_TOKEN_BASE_ONLY
+  MOG_MEMECOIN_TOKEN_BASE_ONLY,
+  HORSE_MEMECOIN_TOKEN_BASE_ONLY,
+  MINUTES_MEMECOIN_TOKEN_BASE_ONLY,
+  BYC_TOKEN_BASE_ONLY
   //DUMB_MEMECOIN_TOKEN_BASE_ONLY,
   //SPACE_MEMECOIN_TOKEN_BASE_ONLY,
   //COFFEE_MEMECOIN_TOKEN_BASE_ONLY,
