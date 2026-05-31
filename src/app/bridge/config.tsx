@@ -1416,7 +1416,7 @@ export const CHOCO_TACO_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
-const HORSE_MEMECOIN_ASSET_ID_BASE_MAINNET = '1efff18fedcdb63818a1b41ab3e977707bc314a090e7ea5db396a56095290604'
+const HORSE_MEMECOIN_ASSET_ID_MAINNET = '1efff18fedcdb63818a1b41ab3e977707bc314a090e7ea5db396a56095290604'
 const HORSE_MEMECOIN_ADDRESS_BASE_MAINNET = '0x827fc57Bc514578E8280cEE73f5e948D306aF074'
 
 export const HORSE_MEMECOIN_TOKEN_BASE_ONLY: Token = {
@@ -1427,7 +1427,7 @@ export const HORSE_MEMECOIN_TOKEN_BASE_ONLY: Token = {
     {
       evmNetworkId: BASE_NETWORK.id,
       coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: HORSE_MEMECOIN_ASSET_ID_BASE_MAINNET,
+      assetId: HORSE_MEMECOIN_ASSET_ID_MAINNET,
       contractAddress: HORSE_MEMECOIN_ADDRESS_BASE_MAINNET
     },
   ],
@@ -1435,7 +1435,7 @@ export const HORSE_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
-const BYC_ASSET_ID_BASE_MAINNET = 'ae1536f56760e471ad85ead45f00d680ff9cca73b8cc3407be778f1c0c606eac'
+const BYC_ASSET_ID_MAINNET = 'ae1536f56760e471ad85ead45f00d680ff9cca73b8cc3407be778f1c0c606eac'
 const BYC_ADDRESS_BASE_MAINNET = '0x16b13A47B0C535EFaE58675e0657d3C22471cdA8'
 
 export const BYC_TOKEN_BASE_ONLY: Token = {
@@ -1446,7 +1446,7 @@ export const BYC_TOKEN_BASE_ONLY: Token = {
     {
       evmNetworkId: BASE_NETWORK.id,
       coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: BYC_ASSET_ID_BASE_MAINNET,
+      assetId: BYC_ASSET_ID_MAINNET,
       contractAddress: BYC_ADDRESS_BASE_MAINNET
     },
   ],
@@ -1454,7 +1454,7 @@ export const BYC_TOKEN_BASE_ONLY: Token = {
   additionalWarning: "The CircuitDAO protocol, currently in beta, is responsible for maintaining BYC's peg. Listing on this interface does NOT represent endorsement from the warp.green team. Do your own research before transacting with BYC.",
 }
 
-const MINUTES_MEMECOIN_ASSET_ID_BASE_MAINNET = '8fac6c37fa3bf95bdb2e473df9839fa5f50580c7bad8b6ea13ad201b695b9398'
+const MINUTES_MEMECOIN_ASSET_ID_MAINNET = '8fac6c37fa3bf95bdb2e473df9839fa5f50580c7bad8b6ea13ad201b695b9398'
 const MINUTES_MEMECOIN_ADDRESS_BASE_MAINNET = '0x75fE74892c15b9cfddbCD24C388d07a3c8c7D7c6'
 
 export const MINUTES_MEMECOIN_TOKEN_BASE_ONLY: Token = {
@@ -1465,13 +1465,33 @@ export const MINUTES_MEMECOIN_TOKEN_BASE_ONLY: Token = {
     {
       evmNetworkId: BASE_NETWORK.id,
       coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: MINUTES_MEMECOIN_ASSET_ID_BASE_MAINNET,
+      assetId: MINUTES_MEMECOIN_ASSET_ID_MAINNET,
       contractAddress: MINUTES_MEMECOIN_ADDRESS_BASE_MAINNET
     },
   ],
   memecoin: true,
   additionalWarning: null,
 }
+
+const SEC_MEMECOIN_ASSET_ID_MAINNET = '1e4e33b858823a681f0377efe9afa77160f82b06e7dd4ba094c0d360dc430795'
+const SEC_MEMECOIN_ADDRESS_BASE_MAINNET = '0xA70E687428a5Ea9389B7803e722271141532E77C'
+
+export const SEC_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '🪙',
+  getSpecificSymbol: makeCoinsetNativeToken('🪙'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: SEC_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: SEC_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
 
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
@@ -1489,6 +1509,7 @@ export const TOKENS = TESTNET ? [
   LOVE_MEMECOIN_TOKEN_BASE_ONLY,
   SPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   PIZZA_MEMECOIN_TOKEN_BASE_ONLY,
+  SEC_MEMECOIN_TOKEN_BASE_ONLY,
   CHOCO_TACO_MEMECOIN_TOKEN_BASE_ONLY,
   MANA_MEMECOIN_TOKEN_BASE_ONLY,
   HOA_MEMECOIN_TOKEN_BASE_ONLY,
