@@ -1492,6 +1492,24 @@ export const SEC_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
+const BITCOIN_MEMECOIN_ASSET_ID_MAINNET = '46ec3dc25b32221e88fad0ee20f84f7dfff13dbee844497232cb08c8df532b15'
+const BITCOIN_MEMECOIN_ADDRESS_BASE_MAINNET = '0x801003CccD1A4C6079c71D18C7Dbe8375589B2ed'
+
+export const BITCOIN_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '$BITCOIN',
+  getSpecificSymbol: makeCoinsetNativeToken('$BITCOIN'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: BITCOIN_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: BITCOIN_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
 
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
@@ -1562,7 +1580,8 @@ export const TOKENS = TESTNET ? [
   MOG_MEMECOIN_TOKEN_BASE_ONLY,
   HORSE_MEMECOIN_TOKEN_BASE_ONLY,
   MINUTES_MEMECOIN_TOKEN_BASE_ONLY,
-  BYC_TOKEN_BASE_ONLY
+  BYC_TOKEN_BASE_ONLY,
+  BITCOIN_MEMECOIN_TOKEN_BASE_ONLY
   //DUMB_MEMECOIN_TOKEN_BASE_ONLY,
   //SPACE_MEMECOIN_TOKEN_BASE_ONLY,
   //COFFEE_MEMECOIN_TOKEN_BASE_ONLY,
