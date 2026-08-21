@@ -12,6 +12,36 @@ import { L1BlockABI } from "../drivers/abis"
 import { Loader } from "lucide-react"
 import Link from "next/link"
 
+const AVERAGE_BLOCK_TIME_SECONDS_BY_NETWORK_ID: Record<string, number> = {
+  xch: 18.75,
+  eth: 12,
+  base: 2,
+}
+
+function formatEtaFromRemainingConfirmations(remainingConfirmations: number, sourceChainId: string): string {
+  if (remainingConfirmations <= 0) {
+    return "<1 min"
+  }
+
+  const secondsPerBlock = AVERAGE_BLOCK_TIME_SECONDS_BY_NETWORK_ID[sourceChainId] ?? 12
+  const remainingSeconds = Math.max(Math.round(remainingConfirmations * secondsPerBlock), 0)
+
+  if (remainingSeconds < 60) {
+    return "<1 min"
+  }
+
+  const minutes = Math.floor(remainingSeconds / 60)
+  const seconds = remainingSeconds % 60
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }
+
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
+}
+
 export default function StepTwo({
   sourceChain,
   destinationChain,
@@ -70,6 +100,7 @@ function XCHValidationElement({
   ) : (
     <XCHBlockConfirmer
       sourceChainRpcUrl={sourceChain.rpcUrl}
+      sourceChainId={sourceChain.id}
       txInclusionBlock={includedBlockNumber}
       confirmationMinHeight={sourceChain.confirmationMinHeight}
       onConfirmation={async () => {
@@ -112,16 +143,18 @@ function XCHMempoolFollower({
 
 function XCHBlockConfirmer({
   sourceChainRpcUrl,
+  sourceChainId,
   txInclusionBlock,
   confirmationMinHeight,
   onConfirmation,
 }: {
   sourceChainRpcUrl: string,
+  sourceChainId: string,
   txInclusionBlock: number,
   confirmationMinHeight: number,
   onConfirmation: () => void,
 }) {
-  const { data, refetch } = useQuery({
+  const { data } = useQuery({
     queryKey: ['StepTwo_fetchChiaBlockchainState'],
     queryFn: () => getBlockchainState(sourceChainRpcUrl),
     enabled: true,
@@ -129,6 +162,8 @@ function XCHBlockConfirmer({
   })
 
   const confirmations = (data?.peak?.height ?? txInclusionBlock) - txInclusionBlock
+  const remainingConfirmations = Math.max(confirmationMinHeight - confirmations, 0)
+  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChainId)
 
   useEffect(() => {
     if (confirmations >= confirmationMinHeight) {
@@ -137,7 +172,7 @@ function XCHBlockConfirmer({
   }, [confirmations, confirmationMinHeight, onConfirmation])
 
   return (
-    <p className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(confirmations, confirmationMinHeight), 0).toString()}/{confirmationMinHeight})</p>
+    <p className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(confirmations, confirmationMinHeight), 0).toString()}/{confirmationMinHeight}) · ~{etaText} remaining</p>
   )
 }
 
@@ -255,6 +290,8 @@ function EthereumValidationTextElement({
   const currentBlockNumber = blockNumberResp.isSuccess ? blockNumberResp.data : txConfirmationHeight
 
   const currentConfirmations = currentBlockNumber - BigInt(txConfirmationHeight)
+  const remainingConfirmations = Math.max(sourceChain.confirmationMinHeight - Number(currentConfirmations), 0)
+  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
 
   useEffect(() => {
     if (txReceipt.isSuccess && currentConfirmations >= BigInt(sourceChain.confirmationMinHeight)) {
@@ -265,10 +302,9 @@ function EthereumValidationTextElement({
   ])
 
   return (
-    <span className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(parseInt(currentConfirmations.toString()), sourceChain.confirmationMinHeight), 0)}/{sourceChain.confirmationMinHeight})</span>
+    <span className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(parseInt(currentConfirmations.toString()), sourceChain.confirmationMinHeight), 0)}/{sourceChain.confirmationMinHeight}) · ~{etaText} remaining</span>
   )
 }
-
 
 function BaseValidationTextElement({
   txReceipt,
@@ -298,6 +334,8 @@ function BaseValidationTextElement({
 
   const currentConfirmations = blockNumberWhenTxConfirmedResp.isSuccess && blockNumberNowResp.isSuccess ?
     (blockNumberNowResp.data as bigint) - (blockNumberWhenTxConfirmedResp.data as bigint) : BigInt(0)
+  const remainingConfirmations = Math.max(sourceChain.confirmationMinHeight - Number(currentConfirmations), 0)
+  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
 
   useEffect(() => {
     if (txReceipt.isSuccess && currentConfirmations >= BigInt(sourceChain.confirmationMinHeight)) {
@@ -308,6 +346,6 @@ function BaseValidationTextElement({
   ])
 
   return (
-    <span className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(parseInt(currentConfirmations.toString()), sourceChain.confirmationMinHeight), 0)}/{sourceChain.confirmationMinHeight})</span>
+    <span className="animate-in fade-in slide-in-from-bottom-2 duration-500">Confirming transaction ({Math.max(Math.min(parseInt(currentConfirmations.toString()), sourceChain.confirmationMinHeight), 0)}/{sourceChain.confirmationMinHeight}) · ~{etaText} remaining</span>
   )
 }
