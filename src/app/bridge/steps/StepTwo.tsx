@@ -18,13 +18,19 @@ const AVERAGE_BLOCK_TIME_SECONDS_BY_NETWORK_ID: Record<string, number> = {
   base: 2,
 }
 
-function formatEtaFromRemainingConfirmations(remainingConfirmations: number, sourceChainId: string): string {
+function getEtaSecondsFromRemainingConfirmations(remainingConfirmations: number, sourceChainId: string): number {
   if (remainingConfirmations <= 0) {
-    return "<1 min"
+    return 0
   }
 
   const secondsPerBlock = AVERAGE_BLOCK_TIME_SECONDS_BY_NETWORK_ID[sourceChainId] ?? 12
-  const remainingSeconds = Math.max(Math.round(remainingConfirmations * secondsPerBlock), 0)
+  return Math.max(Math.round(remainingConfirmations * secondsPerBlock), 0)
+}
+
+function formatEtaFromSeconds(remainingSeconds: number): string {
+  if (remainingSeconds <= 0) {
+    return "<1 min"
+  }
 
   if (remainingSeconds < 60) {
     return "<1 min"
@@ -40,6 +46,26 @@ function formatEtaFromRemainingConfirmations(remainingConfirmations: number, sou
   }
 
   return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`
+}
+
+function useLiveEtaFromRemainingConfirmations(remainingConfirmations: number, sourceChainId: string): string {
+  const [remainingSeconds, setRemainingSeconds] = useState(() =>
+    getEtaSecondsFromRemainingConfirmations(remainingConfirmations, sourceChainId)
+  )
+
+  useEffect(() => {
+    setRemainingSeconds(getEtaSecondsFromRemainingConfirmations(remainingConfirmations, sourceChainId))
+  }, [remainingConfirmations, sourceChainId])
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setRemainingSeconds((prev) => Math.max(prev - 1, 0))
+    }, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [])
+
+  return formatEtaFromSeconds(remainingSeconds)
 }
 
 export default function StepTwo({
@@ -163,7 +189,7 @@ function XCHBlockConfirmer({
 
   const confirmations = (data?.peak?.height ?? txInclusionBlock) - txInclusionBlock
   const remainingConfirmations = Math.max(confirmationMinHeight - confirmations, 0)
-  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChainId)
+  const etaText = useLiveEtaFromRemainingConfirmations(remainingConfirmations, sourceChainId)
 
   useEffect(() => {
     if (confirmations >= confirmationMinHeight) {
@@ -291,7 +317,7 @@ function EthereumValidationTextElement({
 
   const currentConfirmations = currentBlockNumber - BigInt(txConfirmationHeight)
   const remainingConfirmations = Math.max(sourceChain.confirmationMinHeight - Number(currentConfirmations), 0)
-  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
+  const etaText = useLiveEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
 
   useEffect(() => {
     if (txReceipt.isSuccess && currentConfirmations >= BigInt(sourceChain.confirmationMinHeight)) {
@@ -335,7 +361,7 @@ function BaseValidationTextElement({
   const currentConfirmations = blockNumberWhenTxConfirmedResp.isSuccess && blockNumberNowResp.isSuccess ?
     (blockNumberNowResp.data as bigint) - (blockNumberWhenTxConfirmedResp.data as bigint) : BigInt(0)
   const remainingConfirmations = Math.max(sourceChain.confirmationMinHeight - Number(currentConfirmations), 0)
-  const etaText = formatEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
+  const etaText = useLiveEtaFromRemainingConfirmations(remainingConfirmations, sourceChain.id)
 
   useEffect(() => {
     if (txReceipt.isSuccess && currentConfirmations >= BigInt(sourceChain.confirmationMinHeight)) {
