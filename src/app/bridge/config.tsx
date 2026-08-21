@@ -1530,6 +1530,44 @@ export const UFO_MEMECOIN_TOKEN_BASE_ONLY: Token = {
   additionalWarning: null,
 }
 
+const COLA_MEMECOIN_ASSET_ID_MAINNET = 'a910a3cc4dca10a81a9dd7c862e46af5559e1d9323c5712f7f8b96b4e7d2bb90'
+const COLA_MEMECOIN_ADDRESS_BASE_MAINNET = '0x89062c32a74BFF97Bd9c0312027755c755bE3833'
+
+export const COLA_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: 'COLA',
+  getSpecificSymbol: makeCoinsetNativeToken('COLA'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: COLA_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: COLA_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
+const CHERRY_MEMECOIN_ASSET_ID_MAINNET = '212ee62a22513390468feb33de56d14209d3042100633451043602e32919b637'
+const CHERRY_MEMECOIN_ADDRESS_BASE_MAINNET = '0x74057e5085DB2D46C7996Ab88Ac27dCdCEA952d6'
+
+export const CHERRY_MEMECOIN_TOKEN_BASE_ONLY: Token = {
+  symbol: '🍒',
+  getSpecificSymbol: makeCoinsetNativeToken('🍒'),
+  sourceNetworkType: NetworkType.COINSET,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: CHERRY_MEMECOIN_ASSET_ID_MAINNET,
+      contractAddress: CHERRY_MEMECOIN_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: true,
+  additionalWarning: null,
+}
+
 export const TOKENS = TESTNET ? [
   ETH_TOKEN,
   XCH_TOKEN,
@@ -1552,6 +1590,8 @@ export const TOKENS = TESTNET ? [
   HOA_MEMECOIN_TOKEN_BASE_ONLY,
   tREE31000_MEMECOIN_TOKEN_BASE_ONLY,
   TIGER_BLOOD_MEMECOIN_TOKEN_BASE_ONLY,
+  COLA_MEMECOIN_TOKEN_BASE_ONLY,
+  CHERRY_MEMECOIN_TOKEN_BASE_ONLY,
   UFO_MEMECOIN_TOKEN_BASE_ONLY,
   NO_IDEA_MEMECOIN_TOKEN_BASE_ONLY,
   BEPE_MEMECOIN_TOKEN_BASE_ONLY,
