@@ -306,7 +306,7 @@ export async function getSigsAndSelectors(
   const routingDataBuff = Buffer.from(rawMessage.sourceChainHex + rawMessage.destinationChainHex + rawMessage.nonce, "hex");
   const routingData = bech32m.encode("r", bech32m.toWords(routingDataBuff));
 
-  var coinData = "";
+  var coinData = ""; // second downtime ever - GreenWeb.util.address.puzzleHashToAddress("8d585f7e65a996cc93d85a1cc2d0e13abf170ee8bf24fa2cc4e2f5c6df9183f8", "c");
   if(coinId !== null && coinId.length > 0) {
     coinData = GreenWeb.util.address.puzzleHashToAddress(coinId, "c");
   }
@@ -421,27 +421,23 @@ export async function getSigsAndSelectors(
   }
 
   // We're getting sigs for XCH
-  // Order doesn't matter but we need to generate the 'selectors' array
-  const seenContents = new Set<string>();
-  let sigStrings = events
-    .filter((e) => NOSTR_CONFIG.validatorKeys.includes(e.pubkey))
-    .filter((e) => {
-      if (seenContents.has(e.content)) return false;
-      seenContents.add(e.content);
-      return true;
-    })
-    .map((event) => routingData + "-" + (event.tags.find(e => e[0] == 'c')??["", ""])[1] + "-" + event.content)
-  
-  if(sigStrings.length > sigLimit) {
-    sigStrings = sigStrings.slice(0, sigLimit);
+  // One event per validator. Relay copies of the same pubkey must not consume a slot,
+  // and the bitmask has to name exactly the signatures that get aggregated.
+  const seenPubkeys = new Set<string>();
+  let validatorEvents = events.filter((e) => {
+    if (!NOSTR_CONFIG.validatorKeys.includes(e.pubkey)) return false;
+    if (seenPubkeys.has(e.pubkey)) return false;
+    seenPubkeys.add(e.pubkey);
+    return true;
+  });
+
+  if (validatorEvents.length > sigLimit) {
+    validatorEvents = validatorEvents.slice(0, sigLimit);
   }
 
-  let pubkeys = events.map((event) => event.pubkey);
-  if(pubkeys.length > sigLimit) {
-    pubkeys = pubkeys.slice(0, sigLimit);
-  }
-  
-  const selectors = NOSTR_CONFIG.validatorKeys.map((validatorInfo) => pubkeys.includes(validatorInfo));
+  const sigStrings = validatorEvents.map((event) => routingData + "-" + (event.tags.find(e => e[0] == 'c')??["", ""])[1] + "-" + event.content)
+  const selectedPubkeys = new Set(validatorEvents.map((event) => event.pubkey));
+  const selectors = NOSTR_CONFIG.validatorKeys.map((validatorInfo) => selectedPubkeys.has(validatorInfo));
 
   return [
     sigStrings,
