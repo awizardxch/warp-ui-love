@@ -1,7 +1,9 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { getEvmTokenDecimals, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { getEvmTokenDecimals, getStockRouter, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { readContract } from "wagmi/actions"
+import { agreedForwarder, StockBridgeRouterABI } from "../drivers/wrappedStock"
 import { ethers } from "ethers"
 import { useAccount, useReadContract, useTransactionConfirmations, useWriteContract, useChainId, useConfig, useSwitchChain, useBalance, useReadContracts } from "wagmi"
 import * as GreenWeb from 'greenwebjs'
@@ -227,8 +229,17 @@ export default function StepOne({
         <p className="text-xl mb-4">{recipient}</p>
         {returningWrappedStock !== undefined && (
           <p className="mb-4 border rounded-md px-4 py-3 text-sm">
-            You will receive <span className="font-medium">wrapped {token.symbol}</span> on {destinationChain.displayName}, not {token.symbol} itself.
-            The receiving wallet then unwraps it 1:1. Only send to a wallet you control: an exchange or custodial address cannot unwrap it, and the tokens would be stuck.
+            {getStockRouter(destinationChain.id) !== null ? (
+              <>
+                This is sent through the bridge router, so one claim transaction on {destinationChain.displayName} unwraps it and delivers <span className="font-medium">{token.symbol}</span> to the address above.
+                Only that address can receive it. Use a wallet you control: the claim is made from it.
+              </>
+            ) : (
+              <>
+                You will receive <span className="font-medium">wrapped {token.symbol}</span> on {destinationChain.displayName}, not {token.symbol} itself.
+                The receiving wallet then unwraps it 1:1. Only send to a wallet you control: an exchange or custodial address cannot unwrap it, and the tokens would be stuck.
+              </>
+            )}
           </p>
         )}
         <div className="w-full">
@@ -460,12 +471,38 @@ function ChiaButton({
 
   useEffect(() => {
     const doStuffWithOfferPls = async () => {
+      // A wrapped stock going home through the router is addressed to the
+      // recipient's forwarder: an address derived from theirs, which can pay
+      // out only to them. The claim on the other side then unwraps in the same
+      // transaction. The address is used only if the router's own answer and a
+      // local derivation agree. Otherwise the plain recipient is used, which is
+      // always safe: the wrapped token arrives and is unwrapped separately.
+      let burnRecipient = recipient
+      const stockRouter = getWrappedStockInfo(token, destinationChain.id) !== undefined ? getStockRouter(destinationChain.id) : null
+      if (stockRouter !== null) {
+        try {
+          const forwarder = await readContract(wagmiConfig, {
+            address: stockRouter,
+            abi: StockBridgeRouterABI,
+            functionName: "forwarderOf",
+            args: [recipient as `0x${string}`],
+            chainId: destinationChain.chainId!,
+          })
+          const agreed = agreedForwarder(stockRouter, recipient, forwarder)
+          if (agreed !== null) {
+            burnRecipient = agreed
+          }
+        } catch (_) {
+          burnRecipient = recipient
+        }
+      }
+
       const [sb, nonce] = await (token.sourceNetworkType == NetworkType.EVM ? burnCATs(
         offer,
         sourceChain,
         destinationChain,
         tokenInfo.contractAddress,
-        recipient,
+        burnRecipient,
         setStatus
       ) : lockCATs(
         offer,

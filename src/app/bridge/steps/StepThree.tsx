@@ -2,13 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import * as GreenWeb from 'greenwebjs';
-import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
+import { getStockRouter, getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { getStepThreeURL } from "./urls"
 import { useQuery } from "@tanstack/react-query"
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from "wagmi"
-import { readContracts, waitForTransactionReceipt } from "wagmi/actions"
+import { readContract, readContracts, waitForTransactionReceipt, writeContract as sendContractWrite } from "wagmi/actions"
 import { encodeFunctionData } from "viem"
 import { bootstrapPortal, decodeSignature, getSigsAndSelectors, PortalInfo, RawMessage } from "../drivers/portal"
 import { stringToHex } from "../drivers/util"
@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { ethers } from "ethers"
 import OrPasteOffer from "./OrOffer";
 import UnwrapPrompt from "./UnwrapPrompt";
-import { BridgeTipABI, releasedRawAmount, WrappedStockABI } from "../drivers/wrappedStock";
+import { agreedForwarder, BridgeTipABI, releasedRawAmount, StockBridgeRouterABI, WrappedStockABI } from "../drivers/wrappedStock";
 import { sendAtomicBatch, supportsAtomicBatch, waitForAtomicBatch } from "../drivers/walletBatch";
 
 export default function StepThree({
@@ -115,6 +115,25 @@ function StepThreeEVMDestination({
     }
   }
   const isReceiver = stockRelease !== null && address !== undefined && address.toLowerCase() === stockRelease.receiver
+
+  // Sent through the router: the receiver is a forwarder that pays out only to
+  // one wallet. If that wallet is the one connected, a single ordinary
+  // transaction claims and unwraps.
+  const stockRouter = stockRelease !== null ? getStockRouter(destinationChain.id) : null
+  const { data: myForwarder } = useQuery({
+    queryKey: ['StepThree_forwarder', address, stockRouter],
+    queryFn: () => readContract(wagmiConfig, {
+      address: stockRouter!,
+      abi: StockBridgeRouterABI,
+      functionName: "forwarderOf",
+      args: [address as `0x${string}`],
+      chainId: destinationChain.chainId!,
+    }),
+    enabled: stockRouter !== null && address !== undefined,
+    staleTime: Infinity,
+  })
+  const agreedMine = stockRouter !== null && address !== undefined ? agreedForwarder(stockRouter, address, myForwarder) : null
+  const viaRouter = stockRelease !== null && agreedMine !== null && agreedMine.toLowerCase() === stockRelease.receiver
   const { data: canBatch } = useQuery({
     queryKey: ['StepThree_atomicBatch', address, wagmiChainId],
     queryFn: () => supportsAtomicBatch(wagmiConfig, destinationChain.chainId!, address as `0x${string}`),
@@ -234,6 +253,53 @@ function StepThreeEVMDestination({
   }
   const offerBatch = WALLET_BATCHING_ENABLED && stockRelease !== null && isReceiver && isOnRightChain && canBatch === true
 
+  // One ordinary transaction to the router: it relays the claim and has the
+  // forwarder unwrap to this wallet.
+  const claimThroughRouter = async () => {
+    if (stockRelease === null || stockRouter === null || address === undefined || batchInFlight.current) return
+    batchInFlight.current = true
+    const chainId = destinationChain.chainId!
+    try {
+      if (!isOnRightChain) {
+        await switchToCorrectChain()
+      }
+      setBatchBusy("Confirm in wallet")
+      const portalCall = encodeFunctionData({
+        abi: PortalABI,
+        functionName: "receiveMessage",
+        args: [
+          ("0x" + nonce) as `0x${string}`,
+          ("0x" + stringToHex(sourceChain.id)) as `0x${string}`,
+          ("0x" + source) as `0x${string}`,
+          destination,
+          contents,
+          "0x" + sigs.map(sig => decodeSignature(sig)[4]).join("") as `0x${string}`
+        ],
+      })
+      const txHash = await sendContractWrite(wagmiConfig, {
+        address: stockRouter,
+        abi: StockBridgeRouterABI,
+        functionName: "claimAndUnwrap",
+        args: [address, stockRelease.wrapper, portalCall],
+        chainId,
+      })
+      setBatchBusy("Waiting for confirmation")
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash, chainId })
+      if (receipt.status !== "success") {
+        throw new Error("The transaction reverted. Nothing was claimed.")
+      }
+      setBatchHash(txHash)
+    } catch (error: any) {
+      toast.error("Claim and unwrap failed", {
+        description: `${error?.shortMessage ?? error?.message ?? "Unknown error"} You can claim only, and collect it on the wrap page.`,
+        duration: 15000,
+      })
+    } finally {
+      setBatchBusy(null)
+      batchInFlight.current = false
+    }
+  }
+
   return (
     <div className="p-6 mt-2 bg-background flex flex-col gap-2 font-light rounded-md transition-none animate-in fade-in slide-in-from-bottom-2 duration-500">
       <p className="px-4">
@@ -242,7 +308,11 @@ function StepThreeEVMDestination({
       </p>
       {stockRelease !== null && (
         <p className="px-4 mt-2 text-sm opacity-80">
-          This pays out wrapped {stockRelease.symbol}, which is then unwrapped 1:1 to {stockRelease.symbol} from the receiving wallet.
+          {viaRouter
+            ? `This was sent through the bridge router: one transaction claims it and unwraps it to ${stockRelease.symbol} in this wallet.`
+            : stockRouter !== null && !isReceiver
+              ? `This pays out wrapped ${stockRelease.symbol}. If it was sent to another wallet through the bridge router, connect that wallet to claim and unwrap in one transaction.`
+              : `This pays out wrapped ${stockRelease.symbol}, which is then unwrapped 1:1 to ${stockRelease.symbol} from the receiving wallet.`}
         </p>
       )}
       <div className="flex flex-col gap-3 mt-6">
@@ -253,6 +323,18 @@ function StepThreeEVMDestination({
           >
             <p className="animate-pulse whitespace-normal">{batchBusy}</p>
           </Button>
+        ) : viaRouter && !waitingForTx ? (
+          <>
+            <Button
+              className="w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
+              onClick={claimThroughRouter}
+            >
+              Claim and unwrap
+            </Button>
+            <button type="button" className="text-sm font-light opacity-80 underline hover:opacity-100" onClick={onClick}>
+              Claim only, collect later on the wrap page
+            </button>
+          </>
         ) : offerBatch && !waitingForTx ? (
           <>
             <Button

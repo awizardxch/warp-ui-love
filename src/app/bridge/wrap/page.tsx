@@ -3,15 +3,15 @@
 import { useRef, useState } from "react"
 import { ethers } from "ethers"
 import { toast } from "sonner"
-import { useAccount, useChainId, useReadContracts, useSwitchChain, useWriteContract } from "wagmi"
+import { useAccount, useChainId, useReadContract, useReadContracts, useSwitchChain, useWriteContract } from "wagmi"
 import { waitForTransactionReceipt } from "wagmi/actions"
 import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CopyableLongHexString } from "@/components/CopyableHexString"
-import { getWrappedStockInfo, NETWORKS, Network, Token, TokenInfo, WRAPPED_STOCK_TOKENS, wagmiConfig } from "../config"
-import { formatMultiplier, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
+import { getStockRouter, getWrappedStockInfo, NETWORKS, Network, Token, TokenInfo, WRAPPED_STOCK_TOKENS, wagmiConfig } from "../config"
+import { formatMultiplier, StockBridgeRouterABI, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
 
 type StockEntry = {
   token: Token,
@@ -98,6 +98,26 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
   })
   // Until the wrapper is confirmed to wrap this stock, nothing can be sent.
   const pairingOk = info !== undefined && info[2].toLowerCase() === stock.toLowerCase()
+  // A payout sent back through the bridge router waits at this wallet's
+  // forwarder until it is collected (normally the claim does that itself).
+  const stockRouter = getStockRouter(network.id)
+  const { data: forwarder } = useReadContract({
+    address: stockRouter ?? undefined,
+    abi: StockBridgeRouterABI,
+    functionName: "forwarderOf",
+    args: [account],
+    chainId,
+    query: { enabled: stockRouter !== null && address !== undefined, staleTime: Infinity },
+  })
+  const { data: waiting, refetch: refetchWaiting } = useReadContract({
+    address: wrapper,
+    abi: WrappedStockABI,
+    functionName: "balanceOf",
+    args: [forwarder as `0x${string}`],
+    chainId,
+    query: { enabled: forwarder !== undefined, refetchInterval: 5000, gcTime: 0 },
+  })
+
   const { data: balances, refetch } = useReadContracts({
     allowFailure: false,
     query: { enabled: address !== undefined, refetchInterval: 5000, gcTime: 0 },
@@ -164,6 +184,14 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
     if (ok) setAmount("")
   }
 
+  const collect = async () => {
+    if (stockRouter === null) return
+    const ok = await send("Collect", () => writeContractAsync({
+      address: stockRouter, abi: StockBridgeRouterABI, functionName: "sweep", args: [account, wrapper], chainId,
+    }))
+    if (ok) await refetchWaiting()
+  }
+
   const unwrap = async () => {
     if (rawAmount === null) return
     const value = rawAmount
@@ -191,6 +219,12 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
         <Button className="w-full bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80" onClick={() => open()}>Connect Wallet</Button>
       ) : (
         <>
+          {waiting !== undefined && waiting > BigInt(0) && (
+            <div className="border rounded-md px-3 py-2 text-sm flex items-center justify-between gap-3">
+              <p>{fmt(waiting)} {token.symbol} from the bridge is waiting to be collected.</p>
+              <Button disabled={busy !== null} className="bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 shrink-0" onClick={collect}>Collect</Button>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <button type="button" className="hover:opacity-80 text-left" onClick={() => balances && decimals !== undefined && setAmount(ethers.formatUnits(balances[0], decimals))}>
               {token.symbol}: {balances ? fmt(balances[0]) : "…"}
