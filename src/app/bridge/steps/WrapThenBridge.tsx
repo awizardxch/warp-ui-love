@@ -13,11 +13,12 @@ import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Network, Token, TokenInfo, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
+import { getStockRouter, Network, Token, TokenInfo, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { ERC20BridgeABI } from "../drivers/abis"
 import { formatMultiplier, mojoToRaw, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
 import { BatchCall, sendAtomicBatch, supportsAtomicBatch, waitForAtomicBatch } from "../drivers/walletBatch"
 import { getStepTwoURL } from "./urls"
+import RouterDeposit from "./RouterDeposit"
 
 const BUTTON_CLASS = "w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
 
@@ -110,6 +111,29 @@ export default function WrapThenBridgeButton({
   const required = mojoToRaw(amountMojo, decimals)
   const shortfall = required > wrappedBalance ? required - wrappedBalance : BigInt(0)
   const needsWrap = shortfall > BigInt(0)
+
+  // With a router deployed, a deposit that still needs wrapping is one
+  // transaction. The router wraps the whole amount from the stock itself, so it
+  // applies when the wallet holds enough of the stock for all of it.
+  const routerAddress = getStockRouter(sourceChain.id)
+  if (routerAddress !== null && !stepByStep && needsWrap && stockBalance >= required) {
+    return (
+      <RouterDeposit
+        token={token}
+        wrapper={wrapper}
+        stock={stock}
+        routerAddress={routerAddress}
+        sourceChain={sourceChain}
+        destinationChain={destinationChain}
+        recipient={recipient}
+        amountMojo={amountMojo}
+        required={required}
+        decimals={decimals}
+        multiplier={multiplier}
+        onStepByStep={() => setStepByStep(true)}
+      />
+    )
+  }
 
   const done: Record<Action, boolean> = {
     approveWrap: !needsWrap || stockAllowance >= shortfall,

@@ -83,3 +83,53 @@ forge script script/Deploy.s.sol --rpc-url $BASE_RPC --broadcast --account <keys
 
 Then set that stock's `wrapper` address in `WRAPPED_STOCKS_BASE_MAINNET` in
 `src/app/bridge/config.tsx`. The Chia asset id is derived from it automatically.
+
+# StockBridgeRouter
+
+Does each direction of a wrapped-stock transfer in one ordinary transaction.
+Wallet-level batching of the separate calls was read by wallet security
+scanners as a drainer pattern; one call to a contract is not a batch.
+
+## Base to Chia
+
+`wrapAndBridge(bridgeCall)` pulls the stock from the caller, wraps it, and
+deposits the wrapper into the bridge. `bridgeCall` is the encoded
+`bridgeToChia(wrapper, receiver, mojoAmount)`, forwarded unchanged so it sits
+word for word in the transaction input, where the validators' signer scans for
+it. The caller approves the router for the exact amount first, or uses
+`wrapAndBridgeWithPermit` with a signed approval and sends one transaction.
+
+## Chia to Base
+
+The bridge pays out the wrapper token with no callback. To unwrap in the claim
+transaction, the Chia side names `forwarderOf(user)` as receiver: an address
+derived from the user's, where the router deploys a small forwarder on first
+use. `claimAndUnwrap(user, wrapper, portalCall)` relays the message and has the
+forwarder unwrap to the user.
+
+- A forwarder can pay only the address it was derived from, so anyone may
+  relay, or call `sweep(user, wrapper)` to finish an unwrap.
+- `sweepWrapped`, callable only by the user, takes the wrapper token out
+  without unwrapping, for when the stock itself cannot move.
+- Read the forwarder address from the router. Never compute it elsewhere.
+
+## What it is not
+
+- It holds nothing between transactions and has no owner, fees or upgrade path.
+- It does not change who can freeze or seize: the stock's issuer still can.
+- Whether the validators sign a deposit made through it is unproven until one
+  real deposit succeeds. Test with a minimum deposit (0.002 token) first.
+
+## Rehearse and deploy
+
+```sh
+forge test
+node contracts/script/simulate-router.mjs      # read-only, against live Base
+```
+
+The rehearsal picks a recent holder of each stock and runs everything at one
+pinned block, so the holder cannot move its tokens between being picked and
+being simulated.
+
+Deploy from `/bridge/wrap/deploy` on a local build of the web app, then set
+`STOCK_ROUTER_BASE_MAINNET` in `src/app/bridge/config.tsx`.

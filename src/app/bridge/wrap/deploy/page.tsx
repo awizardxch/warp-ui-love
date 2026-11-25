@@ -10,10 +10,10 @@ import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CopyableLongHexString } from "@/components/CopyableHexString"
-import { BASE_NETWORK, WRAPPED_STOCKS, wagmiConfig } from "../../config"
+import { BASE_NETWORK, getStockRouter, WRAPPED_STOCKS, wagmiConfig } from "../../config"
 import { getWrappedERC20AssetID } from "../../drivers/erc20bridge"
-import { WrappedStockABI } from "../../drivers/wrappedStock"
-import { WRAPPED_STOCK_BYTECODE, WrappedStockConstructorABI } from "../../drivers/wrappedStockBytecode"
+import { StockBridgeRouterABI, WrappedStockABI } from "../../drivers/wrappedStock"
+import { STOCK_BRIDGE_ROUTER_BYTECODE, StockBridgeRouterConstructorABI, WRAPPED_STOCK_BYTECODE, WrappedStockConstructorABI } from "../../drivers/wrappedStockBytecode"
 
 const StockInfoABI = [
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "string" }] },
@@ -79,6 +79,15 @@ export default function DeployWrapperPage() {
         {customValid && alreadyListed === undefined && (
           <DeployCard key={custom.toLowerCase()} underlying={custom as `0x${string}`} configuredWrapper={null} />
         )}
+      </div>
+
+      <h2 className="mt-12 mb-2 text-xl font-light">Bridge router</h2>
+      <p className="mb-4 font-light opacity-80 max-w-3xl">
+        One router serves every stock. It lets a deposit wrap and bridge in a single transaction, and a claim unwrap in the same transaction.
+        It has no owner and holds nothing between transactions. Without it, the site uses the step-by-step flow.
+      </p>
+      <div className="grid xl:grid-cols-2 gap-4">
+        <RouterDeployCard />
       </div>
 
       <p className="mt-8 font-light opacity-80">
@@ -250,6 +259,117 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
               <p className="opacity-80">Config line:</p>
               <code className="block break-all bg-background rounded-md px-3 py-2">
                 {`{ symbol: '${tokenSymbol}', underlying: '${underlying}', wrapper: '${deployed.address}' },`}
+              </code>
+              <p className="opacity-80">This page does not remember the address after a reload. Copy it now.</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RouterDeployCard() {
+  const { address } = useAccount()
+  const wagmiChainId = useChainId()
+  const { switchChainAsync } = useSwitchChain({ config: wagmiConfig })
+  const { open } = useWeb3Modal()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [deployed, setDeployed] = useState<Deployed | null>(null)
+  const inFlight = useRef(false)
+
+  const chainId = BASE_NETWORK.chainId!
+  const bridge = BASE_NETWORK.erc20BridgeAddress as `0x${string}`
+  const portal = BASE_NETWORK.portalAddress as `0x${string}`
+  const configured = getStockRouter(BASE_NETWORK.id)
+
+  const deploy = async () => {
+    if (inFlight.current) return
+    inFlight.current = true
+    try {
+      if (wagmiChainId !== chainId) {
+        await switchChainAsync({ chainId })
+      }
+      setBusy("Confirm in wallet")
+      const walletClient = await getWalletClient(wagmiConfig, { chainId })
+      const txHash = await walletClient.deployContract({
+        abi: StockBridgeRouterConstructorABI,
+        bytecode: STOCK_BRIDGE_ROUTER_BYTECODE,
+        args: [bridge, portal],
+      })
+      setBusy("Waiting for confirmation")
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash, chainId })
+      if (receipt.status !== "success" || !receipt.contractAddress) {
+        throw new Error("The deployment transaction reverted.")
+      }
+      const routerAddress = receipt.contractAddress
+
+      // Confirm what landed on chain is wired to this bridge and portal.
+      setBusy("Checking the deployed contract")
+      let verified = false
+      try {
+        const [onchainBridge, onchainPortal] = await readContracts(wagmiConfig, {
+          allowFailure: false,
+          contracts: [
+            { address: routerAddress, abi: StockBridgeRouterABI, functionName: "bridge", chainId },
+            { address: routerAddress, abi: StockBridgeRouterABI, functionName: "portal", chainId },
+          ],
+        })
+        verified = onchainBridge.toLowerCase() === bridge.toLowerCase() && onchainPortal.toLowerCase() === portal.toLowerCase()
+      } catch (_) {
+        verified = false
+      }
+      setDeployed({ address: routerAddress, txHash, verified })
+    } catch (error: any) {
+      toast.error("Deployment failed", { description: error?.shortMessage ?? error?.message ?? "Unknown error", duration: 10000 })
+    } finally {
+      setBusy(null)
+      inFlight.current = false
+    }
+  }
+
+  const shown = deployed?.address ?? configured
+
+  return (
+    <div className="bg-accent border p-4 rounded-lg flex flex-col gap-3 font-light">
+      <p className="text-xl">StockBridgeRouter</p>
+      <div className="text-sm opacity-80 flex flex-col gap-1">
+        <div className="flex items-center gap-2"><span className="w-20 shrink-0">Bridge</span><CopyableLongHexString hexString={bridge} /></div>
+        <div className="flex items-center gap-2"><span className="w-20 shrink-0">Portal</span><CopyableLongHexString hexString={portal} /></div>
+      </div>
+
+      {configured !== null && deployed === null && (
+        <p className="text-sm border rounded-md px-3 py-2">A router is already configured. Deploying another does not replace it until the config is changed.</p>
+      )}
+
+      {deployed === null && (
+        address === undefined ? (
+          <Button className="w-full bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80" onClick={() => open()}>Connect Wallet</Button>
+        ) : (
+          <Button disabled={busy !== null} className="w-full bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80" onClick={deploy}>
+            {busy !== null ? <span className="animate-pulse">{busy}</span> : "Deploy router"}
+          </Button>
+        )
+      )}
+
+      {shown !== null && shown !== undefined && (
+        <div className="text-sm flex flex-col gap-2 border-t pt-3">
+          <div className="flex items-center gap-2">
+            <span className="w-20 shrink-0 opacity-80">Router</span><CopyableLongHexString hexString={shown} />
+          </div>
+          {deployed !== null && (
+            <>
+              <p className={deployed.verified ? "" : "text-destructive"}>
+                {deployed.verified
+                  ? "Deployed and checked: it is wired to this bridge and portal."
+                  : "Deployed, but the on-chain check did not confirm it. Do not configure this address until you have verified it."}
+              </p>
+              <p>
+                <Link href={`${BASE_NETWORK.explorerUrl}/tx/${deployed.txHash}`} target="_blank" className="underline hover:opacity-80">View the deployment on the explorer</Link>
+              </p>
+              <p className="opacity-80">Config line, in <code>src/app/bridge/config.tsx</code>:</p>
+              <code className="block break-all bg-background rounded-md px-3 py-2">
+                {`const STOCK_ROUTER_BASE_MAINNET: \`0x\${string}\` | null = '${deployed.address}'`}
               </code>
               <p className="opacity-80">This page does not remember the address after a reload. Copy it now.</p>
             </>

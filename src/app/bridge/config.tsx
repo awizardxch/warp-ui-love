@@ -502,6 +502,15 @@ export const WRAPPED_STOCK_TOKENS: Token[] = TESTNET ? [] : WRAPPED_STOCKS_BASE_
   .filter((stock): stock is WrappedStockConfig & { wrapper: `0x${string}` } => stock.wrapper !== null)
   .map(makeWrappedStockToken)
 
+// StockBridgeRouter (contracts/src/StockBridgeRouter.sol): wraps and bridges a
+// stock in one transaction, and unwraps on claim. null until it is deployed;
+// without it the site uses the step-by-step flow. Before setting it publicly,
+// complete one minimum-size deposit and return through it.
+const STOCK_ROUTER_BASE_MAINNET: `0x${string}` | null = null
+
+export const getStockRouter = (evmNetworkId: string): `0x${string}` | null =>
+  !TESTNET && evmNetworkId === BASE_NETWORK.id ? STOCK_ROUTER_BASE_MAINNET : null
+
 // The wrapped-stock entry of a token on a given EVM network, if it is one.
 export const getWrappedStockInfo = (token: Token | undefined, evmNetworkId: string) => {
   const info = token?.supported.find((supported) => supported.evmNetworkId === evmNetworkId)
