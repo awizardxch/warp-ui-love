@@ -460,9 +460,9 @@ type WrappedStockConfig = {
 }
 
 const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
-  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: null },
-  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: null },
-  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: null },
+  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4' },
+  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567' },
+  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7' },
 ]
 
 const WRAPPED_STOCK_WARNING = (symbol: string) =>
