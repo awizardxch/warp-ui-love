@@ -486,6 +486,9 @@ const makeWrappedStockToken = (stock: WrappedStockConfig & { wrapper: `0x${strin
   additionalWarning: WRAPPED_STOCK_WARNING(stock.symbol),
 })
 
+// Every stock that can have a wrapper, deployed or not (used by the deploy page).
+export const WRAPPED_STOCKS: WrappedStockConfig[] = TESTNET ? [] : WRAPPED_STOCKS_BASE_MAINNET
+
 export const WRAPPED_STOCK_TOKENS: Token[] = TESTNET ? [] : WRAPPED_STOCKS_BASE_MAINNET
   .filter((stock): stock is WrappedStockConfig & { wrapper: `0x${string}` } => stock.wrapper !== null)
   .map(makeWrappedStockToken)

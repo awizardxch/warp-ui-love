@@ -68,6 +68,14 @@ of the three stocks. It sends nothing.
 
 One wrapper per stock. Deployment is a real transaction: review it first.
 
+From a browser wallet: run the web app locally (`npm run dev`) and open
+`/bridge/wrap/deploy`. The page deploys the compiled contract, checks what
+landed on chain, and prints the config line. Its bytecode comes from
+`src/app/bridge/drivers/wrappedStockBytecode.ts`; after any change to the
+contract, regenerate it with `node contracts/script/export-bytecode.mjs`.
+
+Or from the command line:
+
 ```sh
 UNDERLYING=0x... NAME="Wrapped NVDAc" SYMBOL=wNVDAc \
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC --broadcast --account <keystore>
