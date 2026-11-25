@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import * as GreenWeb from 'greenwebjs';
-import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, wagmiConfig } from "../config"
+import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { getStepThreeURL } from "./urls"
@@ -118,7 +118,7 @@ function StepThreeEVMDestination({
   const { data: canBatch } = useQuery({
     queryKey: ['StepThree_atomicBatch', address, wagmiChainId],
     queryFn: () => supportsAtomicBatch(wagmiConfig, destinationChain.chainId!, address as `0x${string}`),
-    enabled: isReceiver && wagmiChainId === destinationChain.chainId,
+    enabled: WALLET_BATCHING_ENABLED && isReceiver && wagmiChainId === destinationChain.chainId,
     staleTime: 60000,
   })
 
@@ -232,7 +232,7 @@ function StepThreeEVMDestination({
       batchInFlight.current = false
     }
   }
-  const offerBatch = stockRelease !== null && isReceiver && isOnRightChain && canBatch === true
+  const offerBatch = WALLET_BATCHING_ENABLED && stockRelease !== null && isReceiver && isOnRightChain && canBatch === true
 
   return (
     <div className="p-6 mt-2 bg-background flex flex-col gap-2 font-light rounded-md transition-none animate-in fade-in slide-in-from-bottom-2 duration-500">
