@@ -8,6 +8,7 @@ import { waitForTransactionReceipt } from "wagmi/actions"
 import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CopyableLongHexString } from "@/components/CopyableHexString"
 import { getWrappedStockInfo, NETWORKS, Network, Token, TokenInfo, WRAPPED_STOCK_TOKENS, wagmiConfig } from "../config"
 import { formatMultiplier, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
@@ -34,11 +35,13 @@ function getStockEntries(): StockEntry[] {
 
 export default function WrapPage() {
   const entries = getStockEntries()
+  const [selected, setSelected] = useState(0)
+  const entry = entries[selected] ?? entries[0]
 
   return (
-    <div className="max-w-6xl mt-12 mx-auto w-full p-4 xl:p-0">
+    <div className="max-w-xl mt-12 mx-auto w-full p-4 xl:p-0">
       <h2 className="mb-2 text-xl font-light">Wrap Stocks</h2>
-      <p className="mb-6 font-light opacity-80 max-w-3xl">
+      <p className="mb-6 font-light opacity-80">
         Tokenized stocks on Base are wrapped 1:1 before they can be bridged to Chia. The bridge does this for you;
         this page is for wrapping or unwrapping on Base directly. Wrapping never changes how many tokens you hold:
         one wrapped token always unwraps to exactly one token.
@@ -46,17 +49,30 @@ export default function WrapPage() {
       {entries.length === 0 ? (
         <p className="border rounded-md px-6 py-4 font-light">No wrapped stocks are available yet.</p>
       ) : (
-        <div className="grid xl:grid-cols-2 gap-4">
-          {entries.map((entry) => (
-            <StockCard key={`${entry.token.symbol}-${entry.network.id}`} {...entry} />
-          ))}
-        </div>
+        <StockCard
+          key={`${entry.token.symbol}-${entry.network.id}`}
+          {...entry}
+          selector={
+            <Select value={String(selected)} onValueChange={(value) => setSelected(Number(value))}>
+              <SelectTrigger aria-label="Stock" className="text-xl w-[180px] h-11 border-0 bg-theme-purple hover:opacity-80 rounded-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entries.map((option, index) => (
+                  <SelectItem key={`${option.token.symbol}-${option.network.id}`} value={String(index)} className="text-xl">
+                    {option.token.symbol}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
       )}
     </div>
   )
 }
 
-function StockCard({ token, tokenInfo, network }: StockEntry) {
+function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selector: React.ReactNode }) {
   const { address } = useAccount()
   const wagmiChainId = useChainId()
   const { switchChainAsync } = useSwitchChain({ config: wagmiConfig })
@@ -159,8 +175,8 @@ function StockCard({ token, tokenInfo, network }: StockEntry) {
 
   return (
     <div className="bg-accent border p-4 rounded-lg flex flex-col gap-3 font-light">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-xl">{token.symbol}</p>
+      <div className="flex items-center justify-between gap-2">
+        {selector}
         <p className="text-sm opacity-80">{network.displayName}</p>
       </div>
 

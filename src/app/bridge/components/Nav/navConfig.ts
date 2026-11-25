@@ -1,4 +1,4 @@
-import { STATUS_URL, WRAPPED_STOCK_TOKENS } from "../../config"
+import { STATUS_URL } from "../../config"
 
 interface NavConfig {
   name: string
@@ -15,11 +15,6 @@ export const navConfig: NavConfig[] = [
     name: 'Supported Assets',
     link: '/bridge/assets'
   },
-  // Only shown once a wrapped stock is configured
-  ...(WRAPPED_STOCK_TOKENS.length > 0 ? [{
-    name: 'Wrap Stocks',
-    link: '/bridge/wrap'
-  }] : []),
   {
     name: 'Docs',
     link: 'https://docs.warp.green/developers/introduction',

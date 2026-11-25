@@ -9,6 +9,8 @@ import { useSearchParams } from 'next/navigation';
 import { cn, withToolTip } from '@/lib/utils';
 import AddERCTokenButton from './components/AddERCTokenButton';
 import { CopyableLongHexString } from '@/components/CopyableHexString';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 function containsEmoji(str: string): boolean {
   // Enhanced regex for emoji, including heart and other standard emojis.
@@ -111,7 +113,11 @@ export default function AssetList() {
     highlightedAssets = addAssetsParam.split(',');
   }
 
-  const erc20Assets = useFilteredTokens(NetworkType.EVM);
+  // Wrapped stocks are EVM assets too, but they get a section of their own.
+  const isWrappedStock = (token: any) => token.supported.some((info: any) => info.underlyingAddress !== undefined);
+  const evmAssets = useFilteredTokens(NetworkType.EVM);
+  const erc20Assets = evmAssets.filter(token => !isWrappedStock(token));
+  const wrappedStocks = evmAssets.filter(isWrappedStock);
   const coinsetTokens = useFilteredTokens(NetworkType.COINSET);
 
   return (
@@ -123,6 +129,25 @@ export default function AssetList() {
           <TokenItem key={`${token.symbol}-${tokenInfo.evmNetworkId}-${tokenInfo.coinsetNetworkId}-${tokenInfo.assetId}`} token={token} tokenInfo={tokenInfo} highlightedAssets={highlightedAssets} />
         )))}
       </div>
+
+      {wrappedStocks.length > 0 && (
+        <>
+          <div className="mb-4 mt-12 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-light">Wrapped Stocks</h2>
+              <p className="mt-1 font-light opacity-80">Tokenized stocks on Base. Each is wrapped 1:1 before bridging; the bridge does this for you.</p>
+            </div>
+            <Button className="bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80" asChild>
+              <Link href="/bridge/wrap">Wrap / Unwrap</Link>
+            </Button>
+          </div>
+          <div className='grid xl:grid-cols-2 gap-4'>
+            {wrappedStocks.map(token => token.supported.map(tokenInfo => (
+              <TokenItem key={`${token.symbol}-${tokenInfo.evmNetworkId}-${tokenInfo.coinsetNetworkId}-${tokenInfo.assetId}`} token={token} tokenInfo={tokenInfo} highlightedAssets={highlightedAssets} />
+            )))}
+          </div>
+        </>
+      )}
 
       <h2 className="mb-4 mt-12 text-xl font-light">Supported CAT Assets</h2>
       <div className='grid xl:grid-cols-2 gap-4'>
