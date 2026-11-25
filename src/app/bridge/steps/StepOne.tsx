@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { getEvmTokenDecimals, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
 import { ethers } from "ethers"
 import { useAccount, useReadContract, useTransactionConfirmations, useWriteContract, useChainId, useConfig, useSwitchChain, useBalance, useReadContracts } from "wagmi"
 import * as GreenWeb from 'greenwebjs'
@@ -81,7 +81,7 @@ export default function StepOne({
       }
     } else {
       // EVM token returning to origin chain
-      const ethSideDecimals = token.symbol == "ETH" ? 3 : 6;
+      const ethSideDecimals = token.symbol == "ETH" ? 3 : getEvmTokenDecimals(token);
       let amountWei = ethers.parseUnits(amount, ethSideDecimals);
       
       let feeWei = amountWei * BigInt(30) / BigInt(10000);

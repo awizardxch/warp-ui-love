@@ -263,7 +263,12 @@ export type Token = {
   supported: TokenInfo[],
   memecoin: boolean,
   additionalWarning: string | null,
+  // decimals of the EVM-side ERC-20, only set when it is not the default (6)
+  evmDecimals?: number,
 }
+
+export const DEFAULT_EVM_TOKEN_DECIMALS = 6;
+export const getEvmTokenDecimals = (token: Token) => token.evmDecimals ?? DEFAULT_EVM_TOKEN_DECIMALS;
 
 const MILLIETH_ADDRESS_ETHEREUM: `0x${string}` = TESTNET ?
  '0xc08Bce08391807CBa2cF76BcFD693ce82ba6d27C' :
@@ -432,6 +437,70 @@ const EURe_TOKEN: Token = {
   ],
   memecoin: false,
   additionalWarning: null,
+}
+
+// Base-native 8-decimal ERC-20s (ERC20Bridge scales by 10^(decimals - 3)); asset IDs are fixed, wrapped on Chia from the Base ERC20Bridge
+const COINBASE_TOKENIZED_STOCK_WARNING = (symbol: string) =>
+  `${symbol} is a Coinbase tokenized asset on Base. The bridge moves the raw token quantity; the issuer's UI multiplier only affects displayed amounts on Base and is not applied to the wrapped token on Chia. Listing on this interface does NOT represent endorsement from the warp.green team. Do your own research before transacting with ${symbol}.`
+
+const SPCXc_ASSET_ID_MAINNET = '8fb5ffa1f456f4ca4500809f4fedd5cc15d80c645e8a68baeb7b46d8fc35d6e7'
+const SPCXc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb2000000000000000000007b9fcbd005511aCBd5'
+
+const SPCXc_TOKEN_MAINNET_ONLY: Token = {
+  symbol: 'SPCXc',
+  getSpecificSymbol: () => 'wSPCXc.b',
+  sourceNetworkType: NetworkType.EVM,
+  evmDecimals: 8,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: SPCXc_ASSET_ID_MAINNET,
+      contractAddress: SPCXc_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: false,
+  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('SPCXc'),
+}
+
+const NVDAc_ASSET_ID_MAINNET = 'e833c9b64dc0b1d68d76657ec04ce9e0dfff6958fd0b54662016f6f2205575d6'
+const NVDAc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb20000000000000000000078ee7ce2fE4908108C'
+
+const NVDAc_TOKEN_MAINNET_ONLY: Token = {
+  symbol: 'NVDAc',
+  getSpecificSymbol: () => 'wNVDAc.b',
+  sourceNetworkType: NetworkType.EVM,
+  evmDecimals: 8,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: NVDAc_ASSET_ID_MAINNET,
+      contractAddress: NVDAc_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: false,
+  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('NVDAc'),
+}
+
+const ANTc_ASSET_ID_MAINNET = '5c6a865a763d9a4ce99efcfbd03de83a6474bd8505fef645e67a2b0f27324053'
+const ANTc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb20000000000000000000016e38FD364d271Ba28'
+
+const ANTc_TOKEN_MAINNET_ONLY: Token = {
+  symbol: 'ANTc',
+  getSpecificSymbol: () => 'wANTc.b',
+  sourceNetworkType: NetworkType.EVM,
+  evmDecimals: 8,
+  supported: [
+    {
+      evmNetworkId: BASE_NETWORK.id,
+      coinsetNetworkId: CHIA_NETWORK.id,
+      assetId: ANTc_ASSET_ID_MAINNET,
+      contractAddress: ANTc_ADDRESS_BASE_MAINNET
+    },
+  ],
+  memecoin: false,
+  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('ANTc'),
 }
 
 const DBX_ASSET_ID = TESTNET ? "d82dd03f8a9ad2f84353cd953c4de6b21dbaaf7de3ba3f4ddd9abe31ecba80ad" :
@@ -1633,6 +1702,9 @@ export const TOKENS = TESTNET ? [
   ogSPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   ogPIZZA_MEMECOIN_TOKEN_BASE_ONLY,
   ogHOA_TOKEN_BASE_ONLY,
+  SPCXc_TOKEN_MAINNET_ONLY,
+  NVDAc_TOKEN_MAINNET_ONLY,
+  ANTc_TOKEN_MAINNET_ONLY,
   //USDC_TOKEN_MAINNET_ONLY,
   //ETH_TOKEN,
   //XCH_TOKEN,
