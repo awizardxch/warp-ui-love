@@ -14,7 +14,7 @@ function Header() {
       <header className="grid grid-cols-2 xl:grid-cols-3 items-center px-4 sm:px-8 py-4">
         <Link href="/" className="select-none hover:opacity-80 w-fit transition-colors focus-visible:outline-none ring-offset-accent focus-visible:ring-2 rounded focus-visible:ring-ring focus-visible:ring-offset-2">
           <Image src="/warp-green-logo.png" className="h-5 aspect-auto w-auto" alt="warp.green logo" width={837} height={281} priority />
-          <p className="text-sm text-theme-purple">Bridge Interface</p>
+          <p className="text-sm text-theme-purple">Community front end by aWizard</p>
         </Link>
 
         <div className="xl:hidden flex justify-end">

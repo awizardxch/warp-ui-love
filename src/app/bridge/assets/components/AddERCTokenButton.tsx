@@ -3,7 +3,7 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { useAccount, useReadContract, useSwitchChain, useWalletClient } from "wagmi"
-import { wagmiConfig } from "../../config"
+import { SITE_ICON_URL, wagmiConfig } from "../../config"
 
 const ERC20_DECIMALS_ABI = [{
   name: "decimals",
@@ -66,7 +66,7 @@ function AddERCTokenButton({ tokenAddress, tokenChainId, className }: { tokenAdd
             address: tokenAddress,
             symbol: tokenSymbol,
             decimals: Number(tokenDecimals),
-            image: "https://warp.green/warp-green-icon.png",
+            image: SITE_ICON_URL,
           },
         },
       }

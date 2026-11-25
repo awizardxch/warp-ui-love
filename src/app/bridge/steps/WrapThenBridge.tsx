@@ -13,7 +13,7 @@ import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Network, Token, TokenInfo, wagmiConfig } from "../config"
+import { Network, Token, TokenInfo, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { ERC20BridgeABI } from "../drivers/abis"
 import { formatMultiplier, mojoToRaw, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
 import { BatchCall, sendAtomicBatch, supportsAtomicBatch, waitForAtomicBatch } from "../drivers/walletBatch"
@@ -79,7 +79,7 @@ export default function WrapThenBridgeButton({
   const { data: canBatch } = useQuery({
     queryKey: ["WrapThenBridge_atomicBatch", address, wagmiChainId],
     queryFn: () => supportsAtomicBatch(wagmiConfig, chainId, account),
-    enabled: address !== undefined && wagmiChainId === chainId,
+    enabled: WALLET_BATCHING_ENABLED && address !== undefined && wagmiChainId === chainId,
     staleTime: 60000,
   })
 
@@ -253,7 +253,7 @@ export default function WrapThenBridgeButton({
       inFlight.current = false
     }
   }
-  const offerBatch = canBatch === true && !stepByStep && remaining.length > 1
+  const offerBatch = WALLET_BATCHING_ENABLED && canBatch === true && !stepByStep && remaining.length > 1
 
   const insufficient = shortfall > stockBalance
 

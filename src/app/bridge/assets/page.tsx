@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { NETWORKS, Network, NetworkType, TOKENS } from '../config';
+import { NETWORKS, Network, NetworkType, SITE_ICON_URL, TOKENS } from '../config';
 import { BaseIcon, ChiaIcon, ETHIcon } from '../components/Icons/ChainIcons';
 import { addCATParams } from '../ChiaWalletManager/wallets/types';
 import AddCATButton from './components/AddCATButton';
@@ -64,7 +64,7 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
   const addCATParams: addCATParams = {
     assetId: destChainTokenAddr,
     symbol: `w${formattedTokenSymbol}${sourceChain.id == 'bse' ? '.b' : ''}`,
-    logoUrl: 'https://warp.green/warp-green-icon.png'
+    logoUrl: SITE_ICON_URL
   };
 
   return (

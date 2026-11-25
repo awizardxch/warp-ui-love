@@ -6,6 +6,15 @@ import { getWrappedERC20AssetID } from "./drivers/erc20bridge"
 
 
 export const TESTNET = process.env.NEXT_PUBLIC_TESTNET === "true";
+
+// One-confirmation flows send several calls as a single wallet batch (EIP-5792).
+// Off unless NEXT_PUBLIC_WALLET_BATCHING is "true": wallet security scanners
+// read a batch of approvals and transfers from an unfamiliar site as a
+// wallet-drainer pattern, and flagged this site after batching first shipped.
+export const WALLET_BATCHING_ENABLED = process.env.NEXT_PUBLIC_WALLET_BATCHING === "true";
+
+// This site's own icon, served from its own origin.
+export const SITE_ICON_URL = 'https://warp.awizard.dev/warp-green-icon.png';
 //export const BASE_RPC_ENV: string = getEnvVar("BASE_RPC");
 //export const ETH_RPC_ENV: string = getEnvVar("ETH_RPC");
 export const WATCHER_API_ROOT = TESTNET ? 'https://watcher-api.testnet.warp.green/' : 'https://watcher-api.warp.green/';
@@ -1773,24 +1782,26 @@ declare module 'wagmi' {
   }
 }
 
-export const WALLETCONNECT_PROJECT_ID_ETH = 'e47a64f2fc7214f6c9f71b8b71e5e786'
-export const WALLETCONNECT_PROJECT_ID_XCH = '777b63154ba9ec11877caf45a17b523e'
+// This site's own WalletConnect project id, inlined at build time (see
+// next.config.mjs). One project serves both the EVM and the Chia connection.
+// When it is not set, the upstream warp.green ids are used so wallets still
+// connect; that is a fallback, not the intended setup for this site.
+const OWN_WALLETCONNECT_PROJECT_ID = (process.env.WC_PROJECT_ID ?? "").trim()
+export const USING_OWN_WALLETCONNECT_PROJECT = /^[0-9a-f]{32}$/i.test(OWN_WALLETCONNECT_PROJECT_ID)
+export const WALLETCONNECT_PROJECT_ID_ETH = USING_OWN_WALLETCONNECT_PROJECT ? OWN_WALLETCONNECT_PROJECT_ID : 'e47a64f2fc7214f6c9f71b8b71e5e786'
+export const WALLETCONNECT_PROJECT_ID_XCH = USING_OWN_WALLETCONNECT_PROJECT ? OWN_WALLETCONNECT_PROJECT_ID : '777b63154ba9ec11877caf45a17b523e'
 
 export const xchWcMetadata = {
   name: 'warp.aWizard.dev Bridge XCH Interface',
-  description: 'aWizard Bridge powered by the warp.green cross-chain messaging protocol',
+  description: 'Independent community front end for the warp.green bridge. Not operated by the warp.green team.',
   url: 'https://warp.awizard.dev',
-  icons: [
-    TESTNET ? 'https://testnet.warp.green/warp-green-icon.png' : 'https://www.warp.green/warp-green-icon.png'
-  ]
+  icons: [SITE_ICON_URL]
 }
 export const ethWcMetadata = {
   name: 'warp.aWizard.dev Bridge ETH Interface',
-  description: 'aWizard Bridge by the warp.green cross-chain messaging protocol',
+  description: 'Independent community front end for the warp.green bridge. Not operated by the warp.green team.',
   url: 'https://warp.awizard.dev',
-  icons: [
-    TESTNET ? 'https://testnet.warp.green/warp-green-icon.png' : 'https://www.warp.green/warp-green-icon.png'
-  ]
+  icons: [SITE_ICON_URL]
 }
 
 export const wagmiConfig = defaultWagmiConfig({
