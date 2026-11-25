@@ -9,6 +9,8 @@ import { useSearchParams } from 'next/navigation';
 import { cn, withToolTip } from '@/lib/utils';
 import AddERCTokenButton from './components/AddERCTokenButton';
 import { CopyableLongHexString } from '@/components/CopyableHexString';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 function containsEmoji(str: string): boolean {
   // Enhanced regex for emoji, including heart and other standard emojis.
@@ -44,7 +46,9 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
   if (!sourceChain) throw new Error('Source chain not found');
   const sourceChainName = sourceChain?.displayName || '';
   const sourceChainIcon = getChainIcon(sourceChainName);
-  const sourceChainTokenAddr = isSourceChainCoinset ? tokenInfo.assetId : tokenInfo.contractAddress;
+  // For a wrapped stock, contractAddress is the wrapper; the token people hold is the underlying.
+  const wrapperAddr: string | undefined = tokenInfo.underlyingAddress !== undefined ? tokenInfo.contractAddress : undefined;
+  const sourceChainTokenAddr = isSourceChainCoinset ? tokenInfo.assetId : (tokenInfo.underlyingAddress ?? tokenInfo.contractAddress);
 
   const destChain = getNetwork(isSourceChainCoinset ? tokenInfo.evmNetworkId : tokenInfo.coinsetNetworkId);
   if (!destChain) throw new Error('Destination chain not found');
@@ -73,6 +77,12 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
         {/* Source Asset ID (Exclude for XCH) */}
         {token.symbol !== 'XCH' && (
           <CopyableLongHexString hexString={sourceChainTokenAddr} className='ml-10 mt-2' />
+        )}
+        {wrapperAddr !== undefined && (
+          <div className='ml-10 mt-2 text-sm font-light opacity-80'>
+            <p>Wrapped 1:1 before bridging. Wrapper contract (do not send {token.symbol} to it directly):</p>
+            <CopyableLongHexString hexString={wrapperAddr} className='mt-1' />
+          </div>
         )}
       </div>
       <DownArrowIcon />
@@ -103,7 +113,11 @@ export default function AssetList() {
     highlightedAssets = addAssetsParam.split(',');
   }
 
-  const erc20Assets = useFilteredTokens(NetworkType.EVM);
+  // Wrapped stocks are EVM assets too, but they get a section of their own.
+  const isWrappedStock = (token: any) => token.supported.some((info: any) => info.underlyingAddress !== undefined);
+  const evmAssets = useFilteredTokens(NetworkType.EVM);
+  const erc20Assets = evmAssets.filter(token => !isWrappedStock(token));
+  const wrappedStocks = evmAssets.filter(isWrappedStock);
   const coinsetTokens = useFilteredTokens(NetworkType.COINSET);
 
   return (
@@ -115,6 +129,25 @@ export default function AssetList() {
           <TokenItem key={`${token.symbol}-${tokenInfo.evmNetworkId}-${tokenInfo.coinsetNetworkId}-${tokenInfo.assetId}`} token={token} tokenInfo={tokenInfo} highlightedAssets={highlightedAssets} />
         )))}
       </div>
+
+      {wrappedStocks.length > 0 && (
+        <>
+          <div className="mb-4 mt-12 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-light">Wrapped Stocks</h2>
+              <p className="mt-1 font-light opacity-80">Tokenized stocks on Base. Each is wrapped 1:1 before bridging; the bridge does this for you.</p>
+            </div>
+            <Button className="bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80" asChild>
+              <Link href="/bridge/wrap">Wrap / Unwrap</Link>
+            </Button>
+          </div>
+          <div className='grid xl:grid-cols-2 gap-4'>
+            {wrappedStocks.map(token => token.supported.map(tokenInfo => (
+              <TokenItem key={`${token.symbol}-${tokenInfo.evmNetworkId}-${tokenInfo.coinsetNetworkId}-${tokenInfo.assetId}`} token={token} tokenInfo={tokenInfo} highlightedAssets={highlightedAssets} />
+            )))}
+          </div>
+        </>
+      )}
 
       <h2 className="mb-4 mt-12 text-xl font-light">Supported CAT Assets</h2>
       <div className='grid xl:grid-cols-2 gap-4'>

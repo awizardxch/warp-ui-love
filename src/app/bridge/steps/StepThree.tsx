@@ -2,12 +2,14 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import * as GreenWeb from 'greenwebjs';
-import { NETWORKS, Network, NetworkType, TESTNET, TOKENS, wagmiConfig } from "../config"
-import { useEffect, useState } from "react"
+import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, wagmiConfig } from "../config"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { getStepThreeURL } from "./urls"
 import { useQuery } from "@tanstack/react-query"
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from "wagmi"
+import { readContracts, waitForTransactionReceipt } from "wagmi/actions"
+import { encodeFunctionData } from "viem"
 import { bootstrapPortal, decodeSignature, getSigsAndSelectors, PortalInfo, RawMessage } from "../drivers/portal"
 import { stringToHex } from "../drivers/util"
 import { PortalABI } from "../drivers/abis"
@@ -22,6 +24,9 @@ import AddERCTokenButton from "../assets/components/AddERCTokenButton"
 import { cn } from "@/lib/utils"
 import { ethers } from "ethers"
 import OrPasteOffer from "./OrOffer";
+import UnwrapPrompt from "./UnwrapPrompt";
+import { BridgeTipABI, releasedRawAmount, WrappedStockABI } from "../drivers/wrappedStock";
+import { sendAtomicBatch, supportsAtomicBatch, waitForAtomicBatch } from "../drivers/walletBatch";
 
 export default function StepThree({
   sourceChain,
@@ -52,7 +57,7 @@ function StepThreeEVMDestination({
 }) {
 
   const wagmiChainId = useChainId()
-  const { isConnected: isEthWalletConnected } = useAccount()
+  const { address, isConnected: isEthWalletConnected } = useAccount()
   const { switchChainAsync, status } = useSwitchChain({ config: wagmiConfig })
 
   const searchParams = useSearchParams()
@@ -83,6 +88,45 @@ function StepThreeEVMDestination({
     enabled: hash !== undefined || sigs.length < destinationChain.signatureThreshold,
     refetchInterval: 5000,
   })
+
+  // A wrapped stock coming back: [asset, receiver, mojo amount] released by the ERC20Bridge.
+  // If the connected wallet is the receiver and can batch, the claim and the
+  // unwrap can go out together as one transaction.
+  const [batchHash, setBatchHash] = useState<`0x${string}` | null>(null)
+  const [batchBusy, setBatchBusy] = useState<string | null>(null)
+  const batchInFlight = useRef(false)
+  let stockRelease: { symbol: string, wrapper: `0x${string}`, receiver: string, amountMojo: bigint } | null = null
+  if (
+    destinationChain.erc20BridgeAddress !== undefined &&
+    destination.toLowerCase() === destinationChain.erc20BridgeAddress.toLowerCase() &&
+    contents.length === 3
+  ) {
+    const asset = '0x' + contents[0].slice(-40).toLowerCase()
+    for (const token of TOKENS) {
+      const info = getWrappedStockInfo(token, destinationChain.id)
+      if (info !== undefined && info.contractAddress.toLowerCase() === asset) {
+        stockRelease = {
+          symbol: token.symbol,
+          wrapper: info.contractAddress,
+          receiver: '0x' + contents[1].slice(-40).toLowerCase(),
+          amountMojo: BigInt(contents[2]),
+        }
+      }
+    }
+  }
+  const isReceiver = stockRelease !== null && address !== undefined && address.toLowerCase() === stockRelease.receiver
+  const { data: canBatch } = useQuery({
+    queryKey: ['StepThree_atomicBatch', address, wagmiChainId],
+    queryFn: () => supportsAtomicBatch(wagmiConfig, destinationChain.chainId!, address as `0x${string}`),
+    enabled: isReceiver && wagmiChainId === destinationChain.chainId,
+    staleTime: 60000,
+  })
+
+  if (batchHash) {
+    return (
+      <FinalEVMTxConfirmer destinationChain={destinationChain} txId={batchHash} unwrappedSymbol={stockRelease?.symbol} />
+    )
+  }
 
   if (hash) {
     return (
@@ -130,14 +174,98 @@ function StepThreeEVMDestination({
     generateTxPls()
   }
 
+  // Claim and unwrap as one atomic batch: both happen or neither does.
+  const claimAndUnwrap = async () => {
+    if (stockRelease === null || address === undefined || batchInFlight.current) return
+    batchInFlight.current = true
+    const chainId = destinationChain.chainId!
+    try {
+      setBatchBusy("Preparing")
+      const [decimals, tipBps] = await readContracts(wagmiConfig, {
+        allowFailure: false,
+        contracts: [
+          { address: stockRelease.wrapper, abi: WrappedStockABI, functionName: "decimals", chainId },
+          { address: destinationChain.erc20BridgeAddress as `0x${string}`, abi: BridgeTipABI, functionName: "tip", chainId },
+        ],
+      })
+      // Exactly what the bridge is about to pay this wallet.
+      const unwrapAmount = releasedRawAmount(stockRelease.amountMojo, decimals, tipBps)
+      if (unwrapAmount <= BigInt(0)) {
+        throw new Error("Nothing to unwrap for this amount.")
+      }
+      setBatchBusy("Confirm in wallet")
+      const id = await sendAtomicBatch(wagmiConfig, chainId, address, [
+        {
+          to: destinationChain.portalAddress! as `0x${string}`,
+          data: encodeFunctionData({
+            abi: PortalABI,
+            functionName: "receiveMessage",
+            args: [
+              ("0x" + nonce) as `0x${string}`,
+              ("0x" + stringToHex(sourceChain.id)) as `0x${string}`,
+              ("0x" + source) as `0x${string}`,
+              destination,
+              contents,
+              "0x" + sigs.map(sig => decodeSignature(sig)[4]).join("") as `0x${string}`
+            ],
+          }),
+        },
+        {
+          to: stockRelease.wrapper,
+          data: encodeFunctionData({ abi: WrappedStockABI, functionName: "withdraw", args: [unwrapAmount] }),
+        },
+      ])
+      setBatchBusy("Waiting for confirmation")
+      const batchTx = await waitForAtomicBatch(wagmiConfig, chainId, id)
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: batchTx, chainId })
+      if (receipt.status !== "success") {
+        throw new Error("The transaction reverted. Nothing was claimed.")
+      }
+      setBatchHash(batchTx)
+    } catch (error: any) {
+      toast.error("Claim and unwrap failed", {
+        description: `${error?.shortMessage ?? error?.message ?? "Unknown error"} You can claim first and unwrap after.`,
+        duration: 15000,
+      })
+    } finally {
+      setBatchBusy(null)
+      batchInFlight.current = false
+    }
+  }
+  const offerBatch = stockRelease !== null && isReceiver && isOnRightChain && canBatch === true
+
   return (
     <div className="p-6 mt-2 bg-background flex flex-col gap-2 font-light rounded-md transition-none animate-in fade-in slide-in-from-bottom-2 duration-500">
       <p className="px-4">
         Click the button below to receive your assets on {destinationChain.displayName}.
         Note that lower fees mean slower confirmations.
       </p>
-      <div className="flex mt-6">
-        {!waitingForTx ? (
+      {stockRelease !== null && (
+        <p className="px-4 mt-2 text-sm opacity-80">
+          This pays out wrapped {stockRelease.symbol}, which is then unwrapped 1:1 to {stockRelease.symbol} from the receiving wallet.
+        </p>
+      )}
+      <div className="flex flex-col gap-3 mt-6">
+        {batchBusy !== null ? (
+          <Button
+            className="relative flex items-center gap-2 w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
+            disabled={true}
+          >
+            <p className="animate-pulse whitespace-normal">{batchBusy}</p>
+          </Button>
+        ) : offerBatch && !waitingForTx ? (
+          <>
+            <Button
+              className="w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
+              onClick={claimAndUnwrap}
+            >
+              Claim and unwrap in one confirmation
+            </Button>
+            <button type="button" className="text-sm font-light opacity-80 underline hover:opacity-100" onClick={onClick}>
+              Claim only, unwrap later
+            </button>
+          </>
+        ) : !waitingForTx ? (
           <Button
             disabled={!isEthWalletConnected}
             className={cn("w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl", status === "pending" && 'animate-pulse')}
@@ -573,14 +701,48 @@ function FinalCoinsetTxConfirmer({
 function FinalEVMTxConfirmer({
   destinationChain,
   txId,
+  unwrappedSymbol,
 }: {
   destinationChain: Network,
-  txId: string
+  txId: string,
+  // Set when the claim and the unwrap already happened together in txId.
+  unwrappedSymbol?: string,
 }) {
   const searchParams = useSearchParams()
   const destinationAddr = searchParams.get('destination') as string
   const toChainName = searchParams.get('to')
   const chainId = NETWORKS.find(n => n.id === toChainName)?.chainId
+
+  // An ERC20Bridge release of a wrapped stock pays out the wrapper token:
+  // offer to unwrap it. Message contents are [asset, receiver, mojo amount].
+  let unwrapPrompt = null
+  try {
+    const contents: string[] = JSON.parse(searchParams.get('contents') ?? '[]')
+    const isBridgeRelease = destinationChain.erc20BridgeAddress !== undefined &&
+      destinationAddr?.toLowerCase() === destinationChain.erc20BridgeAddress.toLowerCase()
+    if (unwrappedSymbol === undefined && isBridgeRelease && contents.length === 3) {
+      const asset = '0x' + contents[0].replace('0x', '').slice(-40).toLowerCase()
+      const receiver = ethers.getAddress('0x' + contents[1].replace('0x', '').slice(-40))
+      for (const token of TOKENS) {
+        const info = getWrappedStockInfo(token, destinationChain.id)
+        if (info !== undefined && info.contractAddress.toLowerCase() === asset) {
+          unwrapPrompt = (
+            <UnwrapPrompt
+              symbol={token.symbol}
+              tokenInfo={info}
+              chain={destinationChain}
+              claimTxId={txId as `0x${string}`}
+              receiver={receiver}
+              amountMojo={BigInt('0x' + contents[2].replace('0x', ''))}
+            />
+          )
+        }
+      }
+    }
+  } catch (_) {
+    unwrapPrompt = null
+  }
+
   return (
     <div className="flex flex-col">
       <div className="p-6 my-2 bg-background flex flex-col gap-2 font-light rounded-md relative animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -595,6 +757,12 @@ function FinalEVMTxConfirmer({
           </Button>
         </div>
       </div>
+      {unwrapPrompt}
+      {unwrappedSymbol !== undefined && (
+        <div className="p-6 mt-2 bg-background flex flex-col gap-2 font-light rounded-md animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <p>Claimed and unwrapped in this transaction. The {unwrappedSymbol} is in your wallet.</p>
+        </div>
+      )}
       <div className="p-6 py-4 mt-2 bg-background flex flex-col gap-2 font-light rounded-md relative animate-[delayed-fade-in_0.7s_ease_forwards]">
         <div className="flex items-center gap-2">
           <TriangleAlert className="opacity-80 w-4 h-auto" />

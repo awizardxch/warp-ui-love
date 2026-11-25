@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { getEvmTokenDecimals, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { getEvmTokenDecimals, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
 import { ethers } from "ethers"
 import { useAccount, useReadContract, useTransactionConfirmations, useWriteContract, useChainId, useConfig, useSwitchChain, useBalance, useReadContracts } from "wagmi"
 import * as GreenWeb from 'greenwebjs'
@@ -19,6 +19,7 @@ import { cn, withToolTip } from "@/lib/utils"
 import { useWalletInfo, useWeb3Modal, useWeb3ModalState } from "@web3modal/wagmi/react"
 import { erc20Abi } from "viem"
 import OrPasteOffer from "./OrOffer"
+import WrapThenBridgeButton from "./WrapThenBridge"
 import Link from "next/link"
 
 export default function StepOne({
@@ -117,6 +118,26 @@ export default function StepOne({
     }
   }
 
+  // A wrapped stock leaving its home chain is wrapped first, then bridged.
+  const wrappedStockInfo = sourceChain.type === NetworkType.EVM ? getWrappedStockInfo(token, sourceChain.id) : undefined
+
+  // Coming back, the bridge pays out the wrapper token, which the receiver then
+  // unwraps. These addresses can never do that, so the tokens would be stranded.
+  const returningWrappedStock = sourceChain.type === NetworkType.COINSET ? getWrappedStockInfo(token, destinationChain.id) : undefined
+  if (returningWrappedStock !== undefined) {
+    const unusableRecipients = [
+      returningWrappedStock.contractAddress,
+      returningWrappedStock.underlyingAddress,
+      destinationChain.erc20BridgeAddress,
+      destinationChain.portalAddress,
+    ].filter((a) => a !== undefined).map((a) => a!.toLowerCase())
+    if (unusableRecipients.includes(recipient.toLowerCase())) {
+      toast.error("Invalid recipient address", { description: `Wrapped ${token.symbol} sent to this address could never be unwrapped. Use a wallet you control.`, duration: 10000, id: "invalid-recipient" })
+      router.push("/bridge")
+      return <></>
+    }
+  }
+
   const chainIcons = (() => {
     let sourceChainIcon = <></>
     let destinationChainIcon = <></>
@@ -193,7 +214,7 @@ export default function StepOne({
             ) : (
               <p className="text-xl flex items-center gap-2">{outputAmountStr} {token.symbol === "ETH" ?
                 <>{sourceChain.displayName} Warped milliETH {withToolTip(<div className="group-hover:opacity-80 h-5 flex justify-center items-center shadow-sm shadow-white/50 border rounded-full aspect-square bg-accent text-sm font-normal text-primary/80 w-auto">?</div>, 'Ether is automatically converted to milliETH at a 1:1000 ratio.')}</> :
-                `${token.sourceNetworkType !== destinationChain.type ? `${sourceChain.displayName} Warped` : ''} ${token.symbol}`}</p>
+                `${token.sourceNetworkType !== destinationChain.type ? `${sourceChain.displayName} Warped` : ''} ${returningWrappedStock !== undefined ? 'wrapped ' : ''}${token.symbol}`}</p>
             )
           )
           }
@@ -204,6 +225,12 @@ export default function StepOne({
       <div className="p-6 mt-2 bg-background flex flex-col gap-2 font-light rounded-md relative animate-[delayed-fade-in_0.7s_ease_forwards]">
         <p className="mb-2 font-extralight opacity-80">Recipient address</p>
         <p className="text-xl mb-4">{recipient}</p>
+        {returningWrappedStock !== undefined && (
+          <p className="mb-4 border rounded-md px-4 py-3 text-sm">
+            You will receive <span className="font-medium">wrapped {token.symbol}</span> on {destinationChain.displayName}, not {token.symbol} itself.
+            The receiving wallet then unwraps it 1:1. Only send to a wallet you control: an exchange or custodial address cannot unwrap it, and the tokens would be stuck.
+          </p>
+        )}
         <div className="w-full">
           {sourceChain.type == NetworkType.COINSET ? (
             <ChiaButton
@@ -212,6 +239,15 @@ export default function StepOne({
               destinationChain={destinationChain}
               recipient={recipient}
               amount={amount}
+              amountMojo={amountMojo}
+            />
+          ) : wrappedStockInfo !== undefined ? (
+            <WrapThenBridgeButton
+              token={token}
+              tokenInfo={wrappedStockInfo}
+              sourceChain={sourceChain}
+              destinationChain={destinationChain}
+              recipient={recipient}
               amountMojo={amountMojo}
             />
           ) : (

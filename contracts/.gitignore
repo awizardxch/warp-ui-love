@@ -1,0 +1,5 @@
+# Foundry build output and dependencies (run `forge install` to restore lib/)
+/out/
+/cache/
+/broadcast/
+/lib/
