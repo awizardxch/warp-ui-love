@@ -12,6 +12,9 @@ const nextConfig = {
   env: {
     ETH_RPC: process.env.ETH_RPC ?? "",
     BASE_RPC: process.env.BASE_RPC ?? "",
+    // This site's own WalletConnect project. Either name works: the Vite-style
+    // one is accepted because that is how it was first added to the host.
+    WC_PROJECT_ID: process.env.WC_PROJECT_ID ?? process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? process.env.VITE_WC_PROJECT_ID ?? "",
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

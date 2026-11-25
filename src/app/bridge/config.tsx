@@ -1782,8 +1782,14 @@ declare module 'wagmi' {
   }
 }
 
-export const WALLETCONNECT_PROJECT_ID_ETH = 'e47a64f2fc7214f6c9f71b8b71e5e786'
-export const WALLETCONNECT_PROJECT_ID_XCH = '777b63154ba9ec11877caf45a17b523e'
+// This site's own WalletConnect project id, inlined at build time (see
+// next.config.mjs). One project serves both the EVM and the Chia connection.
+// When it is not set, the upstream warp.green ids are used so wallets still
+// connect; that is a fallback, not the intended setup for this site.
+const OWN_WALLETCONNECT_PROJECT_ID = (process.env.WC_PROJECT_ID ?? "").trim()
+export const USING_OWN_WALLETCONNECT_PROJECT = /^[0-9a-f]{32}$/i.test(OWN_WALLETCONNECT_PROJECT_ID)
+export const WALLETCONNECT_PROJECT_ID_ETH = USING_OWN_WALLETCONNECT_PROJECT ? OWN_WALLETCONNECT_PROJECT_ID : 'e47a64f2fc7214f6c9f71b8b71e5e786'
+export const WALLETCONNECT_PROJECT_ID_XCH = USING_OWN_WALLETCONNECT_PROJECT ? OWN_WALLETCONNECT_PROJECT_ID : '777b63154ba9ec11877caf45a17b523e'
 
 export const xchWcMetadata = {
   name: 'warp.aWizard.dev Bridge XCH Interface',
