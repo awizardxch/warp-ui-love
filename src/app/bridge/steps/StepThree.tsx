@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import * as GreenWeb from 'greenwebjs';
-import { NETWORKS, Network, NetworkType, TESTNET, TOKENS, wagmiConfig } from "../config"
+import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, wagmiConfig } from "../config"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { getStepThreeURL } from "./urls"
@@ -22,6 +22,7 @@ import AddERCTokenButton from "../assets/components/AddERCTokenButton"
 import { cn } from "@/lib/utils"
 import { ethers } from "ethers"
 import OrPasteOffer from "./OrOffer";
+import UnwrapPrompt from "./UnwrapPrompt";
 
 export default function StepThree({
   sourceChain,
@@ -581,6 +582,37 @@ function FinalEVMTxConfirmer({
   const destinationAddr = searchParams.get('destination') as string
   const toChainName = searchParams.get('to')
   const chainId = NETWORKS.find(n => n.id === toChainName)?.chainId
+
+  // An ERC20Bridge release of a wrapped stock pays out the wrapper token:
+  // offer to unwrap it. Message contents are [asset, receiver, mojo amount].
+  let unwrapPrompt = null
+  try {
+    const contents: string[] = JSON.parse(searchParams.get('contents') ?? '[]')
+    const isBridgeRelease = destinationChain.erc20BridgeAddress !== undefined &&
+      destinationAddr?.toLowerCase() === destinationChain.erc20BridgeAddress.toLowerCase()
+    if (isBridgeRelease && contents.length === 3) {
+      const asset = '0x' + contents[0].replace('0x', '').slice(-40).toLowerCase()
+      const receiver = ethers.getAddress('0x' + contents[1].replace('0x', '').slice(-40))
+      for (const token of TOKENS) {
+        const info = getWrappedStockInfo(token, destinationChain.id)
+        if (info !== undefined && info.contractAddress.toLowerCase() === asset) {
+          unwrapPrompt = (
+            <UnwrapPrompt
+              symbol={token.symbol}
+              tokenInfo={info}
+              chain={destinationChain}
+              claimTxId={txId as `0x${string}`}
+              receiver={receiver}
+              amountMojo={BigInt('0x' + contents[2].replace('0x', ''))}
+            />
+          )
+        }
+      }
+    }
+  } catch (_) {
+    unwrapPrompt = null
+  }
+
   return (
     <div className="flex flex-col">
       <div className="p-6 my-2 bg-background flex flex-col gap-2 font-light rounded-md relative animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -595,6 +627,7 @@ function FinalEVMTxConfirmer({
           </Button>
         </div>
       </div>
+      {unwrapPrompt}
       <div className="p-6 py-4 mt-2 bg-background flex flex-col gap-2 font-light rounded-md relative animate-[delayed-fade-in_0.7s_ease_forwards]">
         <div className="flex items-center gap-2">
           <TriangleAlert className="opacity-80 w-4 h-auto" />

@@ -253,6 +253,9 @@ export type TokenInfo = {
   coinsetNetworkId: string,
   assetId: string,
   contractAddress: `0x${string}`
+  // Set only for wrapped stocks: contractAddress is then a WrappedStock wrapper
+  // (contracts/src/WrappedStock.sol) and this is the Base-native token it wraps.
+  underlyingAddress?: `0x${string}`
 }
 
 export type Token = {
@@ -439,68 +442,60 @@ const EURe_TOKEN: Token = {
   additionalWarning: null,
 }
 
-// Base-native 8-decimal ERC-20s (ERC20Bridge scales by 10^(decimals - 3)); asset IDs are fixed, wrapped on Chia from the Base ERC20Bridge
-const COINBASE_TOKENIZED_STOCK_WARNING = (symbol: string) =>
-  `${symbol} is a Coinbase tokenized asset on Base. The bridge moves the raw token quantity; the issuer's UI multiplier only affects displayed amounts on Base and is not applied to the wrapped token on Chia. Listing on this interface does NOT represent endorsement from the warp.green team. Do your own research before transacting with ${symbol}.`
-
-const SPCXc_ASSET_ID_MAINNET = '8fb5ffa1f456f4ca4500809f4fedd5cc15d80c645e8a68baeb7b46d8fc35d6e7'
-const SPCXc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb2000000000000000000007b9fcbd005511aCBd5'
-
-const SPCXc_TOKEN_MAINNET_ONLY: Token = {
-  symbol: 'SPCXc',
-  getSpecificSymbol: () => 'wSPCXc.b',
-  sourceNetworkType: NetworkType.EVM,
-  evmDecimals: 8,
-  supported: [
-    {
-      evmNetworkId: BASE_NETWORK.id,
-      coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: SPCXc_ASSET_ID_MAINNET,
-      contractAddress: SPCXc_ADDRESS_BASE_MAINNET
-    },
-  ],
-  memecoin: false,
-  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('SPCXc'),
+// Coinbase tokenized stocks on Base are B20 native tokens: they live in the Base
+// node and keep no balances in contract storage. The validators' signer cannot
+// measure a deposit of them, so a direct deposit would lock in the ERC20Bridge.
+// They are bridged through an immutable 1:1 wrapper instead (WrappedStock.sol).
+//
+// For these tokens `contractAddress` is the WRAPPER: it is what the bridge holds
+// and what the Chia asset id derives from. `underlyingAddress` is the stock.
+//
+// A stock is listed only once its wrapper address is filled in here. Before
+// listing one publicly, complete one minimum-size deposit end to end: no deposit
+// of a wrapper has been signed by the validators yet.
+type WrappedStockConfig = {
+  symbol: string,
+  underlying: `0x${string}`,
+  wrapper: `0x${string}` | null,
 }
 
-const NVDAc_ASSET_ID_MAINNET = 'e833c9b64dc0b1d68d76657ec04ce9e0dfff6958fd0b54662016f6f2205575d6'
-const NVDAc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb20000000000000000000078ee7ce2fE4908108C'
+const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
+  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: null },
+  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: null },
+  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: null },
+]
 
-const NVDAc_TOKEN_MAINNET_ONLY: Token = {
-  symbol: 'NVDAc',
-  getSpecificSymbol: () => 'wNVDAc.b',
+const WRAPPED_STOCK_WARNING = (symbol: string) =>
+  `${symbol} is a Coinbase tokenized stock on Base. It is wrapped 1:1 into an independent wrapper contract before bridging, and unwrapped on the way back. Its issuer can freeze or seize the tokens backing the wrapper, in which case the bridged token could not be redeemed. One token is not always one share: the issuer's multiplier changes with splits and dividends and is not shown by Chia wallets. Holding it on Chia carries no redemption or voting rights. Listing on this interface is not an endorsement. Do your own research before transacting with ${symbol}.`
+
+const makeWrappedStockToken = (stock: WrappedStockConfig & { wrapper: `0x${string}` }): Token => ({
+  symbol: stock.symbol,
+  getSpecificSymbol: makeEVMNativeToken(stock.symbol),
   sourceNetworkType: NetworkType.EVM,
   evmDecimals: 8,
   supported: [
     {
       evmNetworkId: BASE_NETWORK.id,
       coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: NVDAc_ASSET_ID_MAINNET,
-      contractAddress: NVDAc_ADDRESS_BASE_MAINNET
+      assetId: getWrappedERC20AssetID(BASE_NETWORK, stock.wrapper),
+      contractAddress: stock.wrapper,
+      underlyingAddress: stock.underlying,
     },
   ],
   memecoin: false,
-  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('NVDAc'),
-}
+  additionalWarning: WRAPPED_STOCK_WARNING(stock.symbol),
+})
 
-const ANTc_ASSET_ID_MAINNET = '5c6a865a763d9a4ce99efcfbd03de83a6474bd8505fef645e67a2b0f27324053'
-const ANTc_ADDRESS_BASE_MAINNET: `0x${string}` = '0xb20000000000000000000016e38FD364d271Ba28'
+export const WRAPPED_STOCK_TOKENS: Token[] = TESTNET ? [] : WRAPPED_STOCKS_BASE_MAINNET
+  .filter((stock): stock is WrappedStockConfig & { wrapper: `0x${string}` } => stock.wrapper !== null)
+  .map(makeWrappedStockToken)
 
-const ANTc_TOKEN_MAINNET_ONLY: Token = {
-  symbol: 'ANTc',
-  getSpecificSymbol: () => 'wANTc.b',
-  sourceNetworkType: NetworkType.EVM,
-  evmDecimals: 8,
-  supported: [
-    {
-      evmNetworkId: BASE_NETWORK.id,
-      coinsetNetworkId: CHIA_NETWORK.id,
-      assetId: ANTc_ASSET_ID_MAINNET,
-      contractAddress: ANTc_ADDRESS_BASE_MAINNET
-    },
-  ],
-  memecoin: false,
-  additionalWarning: COINBASE_TOKENIZED_STOCK_WARNING('ANTc'),
+// The wrapped-stock entry of a token on a given EVM network, if it is one.
+export const getWrappedStockInfo = (token: Token | undefined, evmNetworkId: string) => {
+  const info = token?.supported.find((supported) => supported.evmNetworkId === evmNetworkId)
+  return info?.underlyingAddress !== undefined
+    ? info as TokenInfo & { underlyingAddress: `0x${string}` }
+    : undefined
 }
 
 const DBX_ASSET_ID = TESTNET ? "d82dd03f8a9ad2f84353cd953c4de6b21dbaaf7de3ba3f4ddd9abe31ecba80ad" :
@@ -1721,9 +1716,7 @@ export const TOKENS = TESTNET ? [
   ogSPROUT_MEMECOIN_TOKEN_BASE_ONLY,
   ogPIZZA_MEMECOIN_TOKEN_BASE_ONLY,
   ogHOA_TOKEN_BASE_ONLY,
-  //SPCXc_TOKEN_MAINNET_ONLY,
-  //NVDAc_TOKEN_MAINNET_ONLY,
-  //ANTc_TOKEN_MAINNET_ONLY,
+  ...WRAPPED_STOCK_TOKENS,
   //USDC_TOKEN_MAINNET_ONLY,
   //ETH_TOKEN,
   //XCH_TOKEN,

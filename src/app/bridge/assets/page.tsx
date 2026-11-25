@@ -44,7 +44,9 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
   if (!sourceChain) throw new Error('Source chain not found');
   const sourceChainName = sourceChain?.displayName || '';
   const sourceChainIcon = getChainIcon(sourceChainName);
-  const sourceChainTokenAddr = isSourceChainCoinset ? tokenInfo.assetId : tokenInfo.contractAddress;
+  // For a wrapped stock, contractAddress is the wrapper; the token people hold is the underlying.
+  const wrapperAddr: string | undefined = tokenInfo.underlyingAddress !== undefined ? tokenInfo.contractAddress : undefined;
+  const sourceChainTokenAddr = isSourceChainCoinset ? tokenInfo.assetId : (tokenInfo.underlyingAddress ?? tokenInfo.contractAddress);
 
   const destChain = getNetwork(isSourceChainCoinset ? tokenInfo.evmNetworkId : tokenInfo.coinsetNetworkId);
   if (!destChain) throw new Error('Destination chain not found');
@@ -73,6 +75,12 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
         {/* Source Asset ID (Exclude for XCH) */}
         {token.symbol !== 'XCH' && (
           <CopyableLongHexString hexString={sourceChainTokenAddr} className='ml-10 mt-2' />
+        )}
+        {wrapperAddr !== undefined && (
+          <div className='ml-10 mt-2 text-sm font-light opacity-80'>
+            <p>Wrapped 1:1 before bridging. Wrapper contract (do not send {token.symbol} to it directly):</p>
+            <CopyableLongHexString hexString={wrapperAddr} className='mt-1' />
+          </div>
         )}
       </div>
       <DownArrowIcon />
