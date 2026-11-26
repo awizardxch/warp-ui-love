@@ -497,10 +497,10 @@ const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
   { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4', milli: false },
   { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567', milli: false },
   { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7', milli: false },
-  // Milli wrappers: not deployed yet. Fill in `wrapper` to list each one.
-  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: null, milli: true },
-  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: null, milli: true },
-  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: null, milli: true },
+  // Milli wrappers (5 decimals), deployed 2026-11-25.
+  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x139d3398e7563FDd22172926f4391ebC84C9f402', milli: true },
+  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x362c5E8142a6DF57b2eb3b321F0dE2279eDD5e22', milli: true },
+  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0xE2362A72B5A9CE08f6097F6ec276324338D18c70', milli: true },
 ]
 
 // Names of the wrapper ERC-20 on Base. The Chia CAT carries the same symbol plus ".b".
