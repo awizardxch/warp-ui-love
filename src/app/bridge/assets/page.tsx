@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { NETWORKS, Network, NetworkType, SITE_ICON_URL, TOKENS } from '../config';
+import { getChiaUnitSymbol, getEvmUnitShift, getStockSymbol, NETWORKS, Network, NetworkType, SITE_ICON_URL, TOKENS } from '../config';
 import { BaseIcon, ChiaIcon, ETHIcon } from '../components/Icons/ChainIcons';
 import { addCATParams } from '../ChiaWalletManager/wallets/types';
 import AddCATButton from './components/AddCATButton';
@@ -56,14 +56,15 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
   const destChainIcon = getChainIcon(destChainName);
   const destChainTokenAddr = isSourceChainCoinset ? tokenInfo.contractAddress : tokenInfo.assetId;
 
-  const formattedTokenSymbol = token.symbol === "ETH" ? "milliETH" : token.symbol;
+  const formattedTokenSymbol = token.symbol === "ETH" ? "milliETH" : getChiaUnitSymbol(token);
 
   // Check if the formatted token symbol contains an emoji
   const isEmoji = containsEmoji(formattedTokenSymbol);
 
   const addCATParams: addCATParams = {
     assetId: destChainTokenAddr,
-    symbol: `w${formattedTokenSymbol}${sourceChain.id == 'bse' ? '.b' : ''}`,
+    // A wrapped stock names its own CAT (wSPCXc.b, or mwSPCXc.b for the milli wrapper).
+    symbol: wrapperAddr !== undefined ? token.getSpecificSymbol('xch', sourceChain.id) : `w${formattedTokenSymbol}${sourceChain.id == 'bse' ? '.b' : ''}`,
     logoUrl: SITE_ICON_URL
   };
 
@@ -72,7 +73,7 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
       <div className='flex flex-col p-4 bg-accent rounded-md'>
         <div className='flex gap-4 items-center w-full'>
           {withToolTip(sourceChainIcon, sourceChainName)}
-          <p className='text-xl font-light'>{token.symbol}</p>
+          <p className='text-xl font-light'>{wrapperAddr !== undefined ? token.getSpecificSymbol(tokenInfo.evmNetworkId, tokenInfo.coinsetNetworkId) : token.symbol}</p>
         </div>
         {/* Source Asset ID (Exclude for XCH) */}
         {token.symbol !== 'XCH' && (
@@ -80,7 +81,7 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
         )}
         {wrapperAddr !== undefined && (
           <div className='ml-10 mt-2 text-sm font-light opacity-80'>
-            <p>Wrapped 1:1 before bridging. Wrapper contract (do not send {token.symbol} to it directly):</p>
+            <p>Wrapped 1:1 before bridging.{getEvmUnitShift(token) === 3 && ` 1 ${getStockSymbol(token)} is 1,000 ${token.getSpecificSymbol('xch', tokenInfo.evmNetworkId)} on Chia.`} Wrapper contract (do not send {getStockSymbol(token)} to it directly):</p>
             <CopyableLongHexString hexString={wrapperAddr} className='mt-1' />
           </div>
         )}

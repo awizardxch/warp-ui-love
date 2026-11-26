@@ -8,7 +8,7 @@ import { useAccount, useChainId, useReadContracts, useSwitchChain, useWaitForTra
 import { waitForTransactionReceipt } from "wagmi/actions"
 import { Button } from "@/components/ui/button"
 import { Network, TokenInfo, wagmiConfig } from "../config"
-import { BridgeTipABI, releasedRawAmount, WrappedStockABI } from "../drivers/wrappedStock"
+import { BridgeTipABI, releasedRawAmount, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
 
 const BUTTON_CLASS = "w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
 
@@ -52,6 +52,7 @@ export default function UnwrapPrompt({
       { address: wrapper, abi: WrappedStockABI, functionName: "decimals", chainId },
       { address: wrapper, abi: WrappedStockABI, functionName: "balanceOf", args: [account], chainId },
       { address: chain.erc20BridgeAddress as `0x${string}`, abi: BridgeTipABI, functionName: "tip", chainId },
+      { address: tokenInfo.underlyingAddress, abi: StockTokenABI, functionName: "decimals", chainId },
     ],
   })
 
@@ -78,7 +79,7 @@ export default function UnwrapPrompt({
   } else if (data === undefined) {
     body = <p className="animate-pulse">Loading your wrapped balance…</p>
   } else {
-    const [decimals, balance, tipBps] = data
+    const [decimals, balance, tipBps, stockDecimals] = data
     const released = releasedRawAmount(amountMojo, decimals, tipBps)
     const amount = released < balance ? released : balance
 
@@ -115,7 +116,7 @@ export default function UnwrapPrompt({
           You received wrapped {symbol}. Unwrap it 1:1 to get {symbol} back, or keep it wrapped to bridge again later.
         </p>
         <Button disabled={busy !== null} className={BUTTON_CLASS} onClick={unwrap}>
-          {busy !== null ? <span className="animate-pulse">{busy}</span> : `Unwrap ${ethers.formatUnits(amount, decimals)} ${symbol}`}
+          {busy !== null ? <span className="animate-pulse">{busy}</span> : `Unwrap ${ethers.formatUnits(amount, stockDecimals)} ${symbol}`}
         </Button>
       </>
     )

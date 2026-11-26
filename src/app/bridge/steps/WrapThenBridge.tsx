@@ -13,7 +13,7 @@ import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Network, Token, TokenInfo, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
+import { getChiaUnitSymbol, getEvmUnitShift, getStockSymbol, Network, Token, TokenInfo, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { ERC20BridgeABI } from "../drivers/abis"
 import { formatMultiplier, mojoToRaw, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
 import { BatchCall, sendAtomicBatch, supportsAtomicBatch, waitForAtomicBatch } from "../drivers/walletBatch"
@@ -55,6 +55,7 @@ export default function WrapThenBridgeButton({
   const inFlight = useRef(false)
   const [stepByStep, setStepByStep] = useState(false)
 
+  const stockSymbol = getStockSymbol(token)
   const wrapper = tokenInfo.contractAddress
   const stock = tokenInfo.underlyingAddress
   const bridge = sourceChain.erc20BridgeAddress as `0x${string}`
@@ -72,6 +73,7 @@ export default function WrapThenBridgeButton({
       { address: wrapper, abi: WrappedStockABI, functionName: "allowance", args: [account, bridge], chainId },
       { address: wrapper, abi: WrappedStockABI, functionName: "uiMultiplier", chainId },
       { address: wrapper, abi: WrappedStockABI, functionName: "underlying", chainId },
+      { address: stock, abi: StockTokenABI, functionName: "decimals", chainId },
     ],
   })
 
@@ -100,10 +102,12 @@ export default function WrapThenBridgeButton({
     return <Button disabled className={BUTTON_CLASS}><span className="animate-pulse">Loading token details</span></Button>
   }
 
-  const [decimals, wrappedBalance, stockBalance, stockAllowance, bridgeAllowance, multiplier, wrapperUnderlying] = data
+  const [decimals, wrappedBalance, stockBalance, stockAllowance, bridgeAllowance, multiplier, wrapperUnderlying, stockDecimals] = data
+  const unitShift = getEvmUnitShift(token)
 
   // A wrapper address configured against the wrong stock would bridge under the wrong name.
-  if (wrapperUnderlying.toLowerCase() !== stock.toLowerCase()) {
+  // One configured with the wrong unit would bridge the wrong quantity, off by a power of ten.
+  if (wrapperUnderlying.toLowerCase() !== stock.toLowerCase() || decimals !== stockDecimals - unitShift) {
     return <Button disabled className="w-full h-14 bg-destructive text-primary text-xl">Wrapper misconfigured</Button>
   }
 
@@ -120,17 +124,18 @@ export default function WrapThenBridgeButton({
   const order: Action[] = ["approveWrap", "wrap", "approveBridge", "bridge"]
   const current = order.find((action) => !done[action])!
 
-  const fmt = (raw: bigint) => ethers.formatUnits(raw, decimals)
+  // Raw units are the same for the stock and its wrapper; show both in stock units.
+  const fmt = (raw: bigint) => ethers.formatUnits(raw, stockDecimals)
   const labels: Record<Action, string> = {
-    approveWrap: `Approve ${token.symbol} for wrapping`,
-    wrap: `Wrap ${fmt(shortfall)} ${token.symbol}`,
-    approveBridge: `Approve wrapped ${token.symbol} for the bridge`,
+    approveWrap: `Approve ${stockSymbol} for wrapping`,
+    wrap: `Wrap ${fmt(shortfall)} ${stockSymbol}`,
+    approveBridge: `Approve wrapped ${stockSymbol} for the bridge`,
     bridge: "Initiate Bridging",
   }
   const checklist: Record<Action, string> = {
-    approveWrap: `Approve ${token.symbol} for wrapping`,
-    wrap: `Wrap ${token.symbol} 1:1`,
-    approveBridge: `Approve wrapped ${token.symbol} for the bridge`,
+    approveWrap: `Approve ${stockSymbol} for wrapping`,
+    wrap: `Wrap ${stockSymbol} 1:1`,
+    approveBridge: `Approve wrapped ${stockSymbol} for the bridge`,
     bridge: `Bridge to ${destinationChain.displayName}`,
   }
 
@@ -261,8 +266,9 @@ export default function WrapThenBridgeButton({
     <div className="flex flex-col gap-4">
       <div className="text-sm font-light opacity-80">
         <p>
-          {token.symbol} is wrapped 1:1 before it is bridged. You hold {fmt(stockBalance)} {token.symbol} and {fmt(wrappedBalance)} wrapped {token.symbol}.
-          One token currently represents {formatMultiplier(multiplier)} shares.
+          {stockSymbol} is wrapped 1:1 before it is bridged. You hold {fmt(stockBalance)} {stockSymbol} and {fmt(wrappedBalance)} wrapped {stockSymbol}.
+          One {stockSymbol} currently represents {formatMultiplier(multiplier)} shares.
+          {unitShift === 3 && <> On {destinationChain.displayName} it is counted in thousandths: 1 {stockSymbol} is 1,000 {getChiaUnitSymbol(token)}.</>}
         </p>
         <ol className="mt-3 flex flex-col gap-1">
           {order.map((action) => (

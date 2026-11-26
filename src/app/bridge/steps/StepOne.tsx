@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { getEvmTokenDecimals, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { getChiaUnitSymbol, getEvmTokenDecimals, getEvmUnitShift, getStockSymbol, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
 import { ethers } from "ethers"
 import { useAccount, useReadContract, useTransactionConfirmations, useWriteContract, useChainId, useConfig, useSwitchChain, useBalance, useReadContracts } from "wagmi"
 import * as GreenWeb from 'greenwebjs'
@@ -43,9 +43,19 @@ export default function StepOne({
 
   const token: Token = TOKENS.find((token) => token.symbol === searchParams.get("token"))!
 
+  // Like ETH and milliETH: the Chia side counts a smaller unit, so the EVM side
+  // takes that many more decimal places.
+  const unitShift = getEvmUnitShift(token)
+  const chiaUnitSymbol = getChiaUnitSymbol(token)
+  // For a wrapped stock the token's `symbol` is only a key; show the stock's own.
+  const evmSymbol = getStockSymbol(token)
+
   var decimals = 3
   if (token.symbol === "ETH" && sourceChain.type == NetworkType.EVM) {
     decimals = 6
+  }
+  if (unitShift > 0 && sourceChain.type == NetworkType.EVM) {
+    decimals = 3 + unitShift
   }
   if (token.symbol === "XCH") {
     decimals = 12
@@ -55,7 +65,7 @@ export default function StepOne({
   try {
     amountMojo = ethers.parseUnits(amount, decimals)
   } catch (_) {
-    toast.error("Invalid amount", { description: "3 decimal places allowed for any token, except for ETH (6 decimal places) and XCH (12 decimal places)", duration: 10000, id: "invalid-amount" })
+    toast.error("Invalid amount", { description: `${decimals} decimal places allowed for this token.`, duration: 10000, id: "invalid-amount" })
     router.push("/bridge")
     return <></>
   }
@@ -79,10 +89,14 @@ export default function StepOne({
       outputAmountStr = ethers.formatUnits(amountMojoAfterFee, decimals);
       if(token.symbol === "ETH") {
         outputAmountStr = ethers.formatUnits(amountMojoAfterFee, decimals - 3);
+      } else if(unitShift > 0) {
+        // shown in the Chia-side unit (e.g. milliSPCXc), which has 3 decimals
+        outputAmountStr = ethers.formatUnits(amountMojoAfterFee, decimals - unitShift);
       }
     } else {
       // EVM token returning to origin chain
-      const ethSideDecimals = token.symbol == "ETH" ? 3 : getEvmTokenDecimals(token);
+      // `amount` is typed in the Chia-side unit; the payout is shown in the EVM-side one.
+      const ethSideDecimals = token.symbol == "ETH" ? 3 : getEvmTokenDecimals(token) - unitShift;
       let amountWei = ethers.parseUnits(amount, ethSideDecimals);
       
       let feeWei = amountWei * BigInt(30) / BigInt(10000);
@@ -96,7 +110,7 @@ export default function StepOne({
         return <></>
       }
 
-      outputAmountStr = ethers.formatUnits(amountWei - feeWei, token.symbol == "ETH" ? 6 : ethSideDecimals);
+      outputAmountStr = ethers.formatUnits(amountWei - feeWei, token.symbol == "ETH" ? 6 : ethSideDecimals + unitShift);
     }
   } else {
     // Chia token returning to origin chain or EVM token briged to Chia
@@ -132,7 +146,7 @@ export default function StepOne({
       destinationChain.portalAddress,
     ].filter((a) => a !== undefined).map((a) => a!.toLowerCase())
     if (unusableRecipients.includes(recipient.toLowerCase())) {
-      toast.error("Invalid recipient address", { description: `Wrapped ${token.symbol} sent to this address could never be unwrapped. Use a wallet you control.`, duration: 10000, id: "invalid-recipient" })
+      toast.error("Invalid recipient address", { description: `Wrapped ${evmSymbol} sent to this address could never be unwrapped. Use a wallet you control.`, duration: 10000, id: "invalid-recipient" })
       router.push("/bridge")
       return <></>
     }
@@ -188,7 +202,7 @@ export default function StepOne({
         <ArrowRight />
         <div className="flex gap-4">
           {chainIcons.sourceChainIcon}
-          <p className="text-xl flex items-center gap-2">{amount} {sourceChain.type !== token.sourceNetworkType && `${destinationChain.displayName} Warped`} {token.symbol === "ETH" && sourceChain.type == NetworkType.COINSET ? <>milliETH {withToolTip(<div className="group-hover:opacity-80 h-5 flex justify-center items-center shadow-sm shadow-white/50 border rounded-full aspect-square bg-accent text-sm font-normal text-primary/80 w-auto">?</div>, 'milliEther is automatically converted to ETH at a 1000:1 ratio.')}</> : token.symbol}</p>
+          <p className="text-xl flex items-center gap-2">{amount} {sourceChain.type !== token.sourceNetworkType && `${destinationChain.displayName} Warped`} {token.symbol === "ETH" && sourceChain.type == NetworkType.COINSET ? <>milliETH {withToolTip(<div className="group-hover:opacity-80 h-5 flex justify-center items-center shadow-sm shadow-white/50 border rounded-full aspect-square bg-accent text-sm font-normal text-primary/80 w-auto">?</div>, 'milliEther is automatically converted to ETH at a 1000:1 ratio.')}</> : sourceChain.type == NetworkType.COINSET ? chiaUnitSymbol : evmSymbol}</p>
         </div>
 
         <div className="flex gap-4">
@@ -214,7 +228,7 @@ export default function StepOne({
             ) : (
               <p className="text-xl flex items-center gap-2">{outputAmountStr} {token.symbol === "ETH" ?
                 <>{sourceChain.displayName} Warped milliETH {withToolTip(<div className="group-hover:opacity-80 h-5 flex justify-center items-center shadow-sm shadow-white/50 border rounded-full aspect-square bg-accent text-sm font-normal text-primary/80 w-auto">?</div>, 'Ether is automatically converted to milliETH at a 1:1000 ratio.')}</> :
-                `${token.sourceNetworkType !== destinationChain.type ? `${sourceChain.displayName} Warped` : ''} ${returningWrappedStock !== undefined ? 'wrapped ' : ''}${token.symbol}`}</p>
+                `${token.sourceNetworkType !== destinationChain.type ? `${sourceChain.displayName} Warped` : ''} ${returningWrappedStock !== undefined ? 'wrapped ' : ''}${destinationChain.type === NetworkType.COINSET ? chiaUnitSymbol : evmSymbol}`}</p>
             )
           )
           }
@@ -227,7 +241,7 @@ export default function StepOne({
         <p className="text-xl mb-4">{recipient}</p>
         {returningWrappedStock !== undefined && (
           <p className="mb-4 border rounded-md px-4 py-3 text-sm">
-            You will receive <span className="font-medium">wrapped {token.symbol}</span> on {destinationChain.displayName}, not {token.symbol} itself.
+            You will receive <span className="font-medium">wrapped {evmSymbol}</span> on {destinationChain.displayName}, not {evmSymbol} itself.
             The receiving wallet then unwraps it 1:1. Only send to a wallet you control: an exchange or custodial address cannot unwrap it, and the tokens would be stuck.
           </p>
         )}
@@ -545,7 +559,7 @@ function ChiaButton({
       assetId: tokenInfo.assetId,
       amount: parseInt(amountMojo.toString())
     })
-    offerReqString += `${ethers.formatUnits(amountMojo, 3)} ${token.symbol} and `;
+    offerReqString += `${ethers.formatUnits(amountMojo, 3)} ${token.stockSymbol !== undefined ? token.getSpecificSymbol(sourceChain.id, destinationChain.id) : token.symbol} and `;
   }
 
   offerAssets.push({

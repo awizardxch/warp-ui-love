@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CopyableLongHexString } from "@/components/CopyableHexString"
-import { getWrappedStockInfo, NETWORKS, Network, Token, TokenInfo, WRAPPED_STOCK_TOKENS, wagmiConfig } from "../config"
-import { formatMultiplier, StockTokenABI, WrappedStockABI } from "../drivers/wrappedStock"
+import { getStockSymbol, getWrappedStockInfo, NETWORKS, Network, Token, TokenInfo, WRAPPED_STOCK_TOKENS, wagmiConfig } from "../config"
+import { formatMultiplier, StockTokenABI, wrappedPerStock, WrappedStockABI } from "../drivers/wrappedStock"
 
 type StockEntry = {
   token: Token,
@@ -43,8 +43,9 @@ export default function WrapPage() {
       <h2 className="mb-2 text-xl font-light">Wrap Stocks</h2>
       <p className="mb-6 font-light opacity-80">
         Tokenized stocks on Base are wrapped 1:1 before they can be bridged to Chia. The bridge does this for you;
-        this page is for wrapping or unwrapping on Base directly. Wrapping never changes how many tokens you hold:
-        one wrapped token always unwraps to exactly one token.
+        this page is for wrapping or unwrapping on Base directly. Wrapping never changes how much you hold:
+        what you wrap always unwraps to exactly the same amount. A stock can have two wrappers: the plain one, and a
+        milli one that counts in thousandths so the Chia side can divide the stock more finely.
       </p>
       {entries.length === 0 ? (
         <p className="border rounded-md px-6 py-4 font-light">No wrapped stocks are available yet.</p>
@@ -54,13 +55,13 @@ export default function WrapPage() {
           {...entry}
           selector={
             <Select value={String(selected)} onValueChange={(value) => setSelected(Number(value))}>
-              <SelectTrigger aria-label="Stock" className="text-xl w-[180px] h-11 border-0 bg-theme-purple hover:opacity-80 rounded-sm">
+              <SelectTrigger aria-label="Stock" className="text-xl w-[220px] h-11 border-0 bg-theme-purple hover:opacity-80 rounded-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {entries.map((option, index) => (
                   <SelectItem key={`${option.token.symbol}-${option.network.id}`} value={String(index)} className="text-xl">
-                    {option.token.symbol}
+                    {option.token.getSpecificSymbol(option.network.id, "xch")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -94,8 +95,11 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
       { address: wrapper, abi: WrappedStockABI, functionName: "decimals", chainId },
       { address: wrapper, abi: WrappedStockABI, functionName: "uiMultiplier", chainId },
       { address: wrapper, abi: WrappedStockABI, functionName: "underlying", chainId },
+      { address: stock, abi: StockTokenABI, functionName: "decimals", chainId },
+      { address: wrapper, abi: WrappedStockABI, functionName: "symbol", chainId },
     ],
   })
+  const stockSymbol = getStockSymbol(token)
   // Until the wrapper is confirmed to wrap this stock, nothing can be sent.
   const pairingOk = info !== undefined && info[2].toLowerCase() === stock.toLowerCase()
   const { data: balances, refetch } = useReadContracts({
@@ -108,7 +112,13 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
     ],
   })
 
-  const decimals = info?.[0]
+  // Amounts are typed and shown in stock units. Raw units are the same for the
+  // stock and its wrapper; a milli wrapper only reads 1,000 times larger in wallets.
+  const wrapperDecimals = info?.[0]
+  const decimals = info?.[3]
+  const perStock = wrapperDecimals !== undefined && decimals !== undefined && decimals >= wrapperDecimals
+    ? wrappedPerStock(decimals, wrapperDecimals)
+    : undefined
   const fmt = (raw: bigint) => decimals === undefined ? "…" : ethers.formatUnits(raw, decimals)
 
   let rawAmount: bigint | null = null
@@ -183,8 +193,11 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
       <div className="text-sm opacity-80 flex flex-col gap-1">
         <div className="flex items-center gap-2"><span className="w-20 shrink-0">Token</span><CopyableLongHexString hexString={stock} /></div>
         <div className="flex items-center gap-2"><span className="w-20 shrink-0">Wrapper</span><CopyableLongHexString hexString={wrapper} /></div>
-        <p>One token represents {info === undefined ? "…" : formatMultiplier(info[1])} shares.</p>
-        {info !== undefined && !pairingOk && <p className="text-destructive">This wrapper does not wrap {token.symbol}. Wrapping is disabled.</p>}
+        <p>One {stockSymbol} represents {info === undefined ? "…" : formatMultiplier(info[1])} shares.</p>
+        {info !== undefined && perStock !== undefined && perStock > BigInt(1) && (
+          <p>Wallets show the wrapped token as {info[4]}: 1 {stockSymbol} is {perStock.toLocaleString("en-US")} {info[4]}. Amounts on this page are in {stockSymbol}.</p>
+        )}
+        {info !== undefined && !pairingOk && <p className="text-destructive">This wrapper does not wrap {stockSymbol}. Wrapping is disabled.</p>}
       </div>
 
       {address === undefined ? (
@@ -193,7 +206,7 @@ function StockCard({ token, tokenInfo, network, selector }: StockEntry & { selec
         <>
           <div className="flex justify-between text-sm">
             <button type="button" className="hover:opacity-80 text-left" onClick={() => balances && decimals !== undefined && setAmount(ethers.formatUnits(balances[0], decimals))}>
-              {token.symbol}: {balances ? fmt(balances[0]) : "…"}
+              {stockSymbol}: {balances ? fmt(balances[0]) : "…"}
             </button>
             <button type="button" className="hover:opacity-80 text-right" onClick={() => balances && decimals !== undefined && setAmount(ethers.formatUnits(balances[1], decimals))}>
               Wrapped: {balances ? fmt(balances[1]) : "…"}

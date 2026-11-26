@@ -8,6 +8,10 @@
 // Usage, from the repo root after `forge build` in contracts/:
 //   node contracts/script/simulate-base.mjs
 //   BASE_RPC=https://your-rpc node contracts/script/simulate-base.mjs
+//   WRAPPER_DECIMALS=8 node contracts/script/simulate-base.mjs
+//
+// By default the wrapper is the milli version: three fewer decimals than the
+// stock, so one mojo on Chia is a millionth of a whole stock token.
 //
 // It does NOT prove the validators will sign: it reads no storage and checks
 // no logs the way the signer does. That needs one real deposit. The sampled
@@ -26,7 +30,7 @@ const STOCKS = [
   ["NVDAc", "0xb20000000000000000000078ee7ce2fE4908108C"],
   ["ANTc", "0xb20000000000000000000016e38FD364d271Ba28"],
 ];
-const MOJO = 500n; // 0.5 token; 1 mojo = 10^(decimals-3) raw units
+const MOJO = 500n; // half a wrapped token; 1 mojo = 10^(wrapper decimals - 3) raw units
 const RECEIVER_PH = "0x" + "11".repeat(32); // placeholder Chia puzzle hash
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -81,7 +85,8 @@ const word = (n) => ethers.toBeHex(n, 32);
 
 async function rehearse(symbol, token) {
   const decimals = Number(await call(token, erc20, "decimals"));
-  const factor = 10n ** BigInt(decimals - 3);
+  const wrapperDecimals = process.env.WRAPPER_DECIMALS ? Number(process.env.WRAPPER_DECIMALS) : decimals - 3;
+  const factor = 10n ** BigInt(wrapperDecimals - 3);
   const raw = MOJO * factor;
   const holder = await findHolder(token, raw);
   if (!holder) {
@@ -102,8 +107,8 @@ async function rehearse(symbol, token) {
   const initcode = ethers.concat([
     artifact.bytecode.object,
     ethers.AbiCoder.defaultAbiCoder().encode(
-      ["address", "string", "string"],
-      [token, `Wrapped ${symbol}`, `w${symbol}`]
+      ["address", "string", "string", "uint8"],
+      [token, `Wrapped ${symbol}`, `w${symbol}`, wrapperDecimals]
     ),
   ]);
 
@@ -124,6 +129,7 @@ async function rehearse(symbol, token) {
     ["view: wrapper backing", view(W, wrapper, "backing")],
     ["view: wrapper totalSupply", view(W, wrapper, "totalSupply")],
     ["view: wrapper decimals", view(W, wrapper, "decimals")],
+    ["view: wrapper underlyingDecimals", view(W, wrapper, "underlyingDecimals")],
     ["view: wrapper uiMultiplier", view(W, wrapper, "uiMultiplier")],
     [
       "release from bridge (as portal)",
@@ -198,7 +204,9 @@ async function rehearse(symbol, token) {
     ["bridge holds net deposit", num("view: wrapped held by bridge") === netMojo * factor],
     ["portal holds the deposit tip", num("view: wrapped tip at portal") === tipMojo * factor],
     ["wrapper fully backed while bridged", num("view: wrapper backing") === num("view: wrapper totalSupply")],
-    ["wrapper decimals match stock", num("view: wrapper decimals") === BigInt(decimals)],
+    ["wrapper decimals as deployed", num("view: wrapper decimals") === BigInt(wrapperDecimals)],
+    ["wrapper records the stock's decimals", num("view: wrapper underlyingDecimals") === BigInt(decimals)],
+    ["one mojo is the expected raw amount", num("view: wrapped held by bridge") + num("view: wrapped tip at portal") === MOJO * factor],
     ["multiplier passes through", num("view: wrapper uiMultiplier") === (await call(token, erc20, "multiplier"))],
     ["bridge emptied by release", num("view: wrapped left in bridge") === 0n],
     ["wrapper still fully backed after unwrap", num2("view: wrapper backing after") === num2("view: wrapper totalSupply after")],
@@ -206,6 +214,7 @@ async function rehearse(symbol, token) {
     ["holder got stock back 1:1", stockAfter === stockBefore - raw + back],
   ];
   console.log(`${symbol}: holder ${holder}, wrapper would deploy at ${W}`);
+  console.log(`  wrapper decimals ${wrapperDecimals} (stock ${decimals}): 1 mojo = ${ethers.formatUnits(factor, decimals)} ${symbol}`);
   console.log(`  in ${ethers.formatUnits(raw, decimals)}  back ${ethers.formatUnits(back, decimals)}  multiplier ${ethers.formatUnits(num("view: wrapper uiMultiplier"), 18)}`);
   for (const [label, ok] of checks) console.log(`  ${ok ? "ok  " : "FAIL"} ${label}`);
   return checks.every(([, ok]) => ok);

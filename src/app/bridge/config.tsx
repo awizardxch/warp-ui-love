@@ -277,10 +277,22 @@ export type Token = {
   additionalWarning: string | null,
   // decimals of the EVM-side ERC-20, only set when it is not the default (6)
   evmDecimals?: number,
+  // Set when the Chia-side token is a smaller unit of the EVM-side one, the way
+  // milliETH is of ETH: one EVM token is 10^evmUnitShift CATs. Amounts typed on
+  // the EVM side then take 3 + evmUnitShift decimal places.
+  evmUnitShift?: number,
+  // Set only for wrapped stocks: the stock's own symbol (SPCXc). `symbol` is
+  // then just the unique key of this entry, since one stock can be listed twice
+  // (whole-token and milli).
+  stockSymbol?: string,
 }
 
 export const DEFAULT_EVM_TOKEN_DECIMALS = 6;
 export const getEvmTokenDecimals = (token: Token) => token.evmDecimals ?? DEFAULT_EVM_TOKEN_DECIMALS;
+export const getEvmUnitShift = (token: Token) => token.evmUnitShift ?? 0;
+export const getStockSymbol = (token: Token) => token.stockSymbol ?? token.symbol;
+// The unit the Chia side counts in, as words (the CAT's own symbol is getSpecificSymbol).
+export const getChiaUnitSymbol = (token: Token) => getEvmUnitShift(token) === 3 ? `milli${getStockSymbol(token)}` : getStockSymbol(token);
 
 const MILLIETH_ADDRESS_ETHEREUM: `0x${string}` = TESTNET ?
  '0xc08Bce08391807CBa2cF76BcFD693ce82ba6d27C' :
@@ -456,6 +468,15 @@ const EURe_TOKEN: Token = {
 // measure a deposit of them, so a direct deposit would lock in the ERC20Bridge.
 // They are bridged through an immutable 1:1 wrapper instead (WrappedStock.sol).
 //
+// A stock can have two wrappers, listed side by side. They differ only in how
+// finely the Chia side can divide the stock:
+// - `milli: false`: wrapper with the stock's 8 decimals. CAT `wSPCXc.b`; one
+//   CAT is one stock token and one mojo is a thousandth of one.
+// - `milli: true`: wrapper with 5 decimals. CAT `mwSPCXc.b` (milli wrapped
+//   SPCXc from Base); one CAT is a thousandth of a stock token and one mojo is
+//   a millionth, the way milliETH works for ETH.
+// Raw units are 1:1 with the stock in both; only the decimal point moves.
+//
 // For these tokens `contractAddress` is the WRAPPER: it is what the bridge holds
 // and what the Chia asset id derives from. `underlyingAddress` is the stock.
 //
@@ -466,22 +487,42 @@ type WrappedStockConfig = {
   symbol: string,
   underlying: `0x${string}`,
   wrapper: `0x${string}` | null,
+  milli: boolean,
 }
 
+export const STOCK_DECIMALS = 8
+export const MILLI_SHIFT = 3
+
 const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
-  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4' },
-  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567' },
-  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7' },
+  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4', milli: false },
+  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567', milli: false },
+  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7', milli: false },
+  // Milli wrappers: not deployed yet. Fill in `wrapper` to list each one.
+  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: null, milli: true },
+  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: null, milli: true },
+  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: null, milli: true },
 ]
 
-const WRAPPED_STOCK_WARNING = (symbol: string) =>
-  `${symbol} is a Coinbase tokenized stock on Base. It is wrapped 1:1 into an independent wrapper contract before bridging, and unwrapped on the way back. Its issuer can freeze or seize the tokens backing the wrapper, in which case the bridged token could not be redeemed. One token is not always one share: the issuer's multiplier changes with splits and dividends and is not shown by Chia wallets. Holding it on Chia carries no redemption or voting rights. Listing on this interface is not an endorsement. Do your own research before transacting with ${symbol}.`
+// Names of the wrapper ERC-20 on Base. The Chia CAT carries the same symbol plus ".b".
+export const wrapperSymbol = (stockSymbol: string, milli: boolean) => `${milli ? 'mw' : 'w'}${stockSymbol}`
+export const wrapperName = (stockSymbol: string, milli: boolean) => `${milli ? 'Milli Wrapped' : 'Wrapped'} ${stockSymbol}`
+
+const WRAPPED_STOCK_WARNING = (symbol: string, milli: boolean) =>
+  `${symbol} is a Coinbase tokenized stock on Base. It is wrapped 1:1 into an independent wrapper contract before bridging, and unwrapped on the way back.${milli ? ` On Chia it is counted in thousandths: 1 ${symbol} is 1,000 milli${symbol}.` : ''} Its issuer can freeze or seize the tokens backing the wrapper, in which case the bridged token could not be redeemed. One ${symbol} is not always one share: the issuer's multiplier changes with splits and dividends and is not shown by Chia wallets. Holding it on Chia carries no redemption or voting rights. Listing on this interface is not an endorsement. Do your own research before transacting with ${symbol}.`
 
 const makeWrappedStockToken = (stock: WrappedStockConfig & { wrapper: `0x${string}` }): Token => ({
-  symbol: stock.symbol,
-  getSpecificSymbol: makeEVMNativeToken(stock.symbol),
+  // Unique key (it goes in the URL); the stock's own symbol is `stockSymbol`.
+  symbol: stock.milli ? `m${stock.symbol}` : stock.symbol,
+  stockSymbol: stock.symbol,
+  getSpecificSymbol: (fromNetworkId: string, toNetworkId: string) => {
+    if (fromNetworkId === 'xch') {
+      return `${wrapperSymbol(stock.symbol, stock.milli)}${toNetworkId === 'bse' ? '.b' : ''}`;
+    }
+    return stock.milli ? `${stock.symbol} (milli)` : stock.symbol;
+  },
   sourceNetworkType: NetworkType.EVM,
-  evmDecimals: 8,
+  evmDecimals: STOCK_DECIMALS,
+  evmUnitShift: stock.milli ? MILLI_SHIFT : 0,
   supported: [
     {
       evmNetworkId: BASE_NETWORK.id,
@@ -492,7 +533,7 @@ const makeWrappedStockToken = (stock: WrappedStockConfig & { wrapper: `0x${strin
     },
   ],
   memecoin: false,
-  additionalWarning: WRAPPED_STOCK_WARNING(stock.symbol),
+  additionalWarning: WRAPPED_STOCK_WARNING(stock.symbol, stock.milli),
 })
 
 // Every stock that can have a wrapper, deployed or not (used by the deploy page).
