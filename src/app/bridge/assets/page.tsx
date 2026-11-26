@@ -63,7 +63,7 @@ function TokenItem({ token, tokenInfo, highlightedAssets }: { token: any, tokenI
 
   const addCATParams: addCATParams = {
     assetId: destChainTokenAddr,
-    // A wrapped stock names its own CAT (wSPCXc.b, or mwSPCXc.b for the milli wrapper).
+    // A wrapped stock names its own CAT (wSPCXc.b, or m.wSPCXc.b for the milli wrapper).
     symbol: wrapperAddr !== undefined ? token.getSpecificSymbol('xch', sourceChain.id) : `w${formattedTokenSymbol}${sourceChain.id == 'bse' ? '.b' : ''}`,
     logoUrl: SITE_ICON_URL
   };

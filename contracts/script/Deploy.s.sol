@@ -6,7 +6,7 @@ import {WrappedStock} from "../src/WrappedStock.sol";
 
 /// Deploys one WrappedStock. Nothing is sent unless you pass --broadcast.
 ///
-///   UNDERLYING=0x... NAME="Milli Wrapped NVDAc" SYMBOL=mwNVDAc DECIMALS=5 \
+///   UNDERLYING=0x... NAME="Milli Wrapped NVDAc" SYMBOL=m.wNVDAc DECIMALS=5 \
 ///   forge script script/Deploy.s.sol --rpc-url $BASE_RPC --broadcast --account <keystore>
 contract Deploy is Script {
     function run() external {

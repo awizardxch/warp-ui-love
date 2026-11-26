@@ -34,7 +34,7 @@ only in how finely Chia can divide it:
 | | Wrapper decimals | Base symbol | Chia CAT | 1 CAT | 1 mojo |
 |---|---|---|---|---|---|
 | Plain | 8 (the stock's) | `wSPCXc` | `wSPCXc.b` | 1 stock token | 0.001 |
-| Milli | 5 | `mwSPCXc` | `mwSPCXc.b` | 0.001 stock token | 0.000001 |
+| Milli | 5 | `m.wSPCXc` | `m.wSPCXc.b` | 0.001 stock token | 0.000001 |
 
 Both hold the stock 1:1 in raw units, and both can be listed at once. They are
 separate contracts with separate Chia asset ids: one cannot be redeemed through
@@ -95,7 +95,7 @@ contract, regenerate it with `node contracts/script/export-bytecode.mjs`.
 Or from the command line:
 
 ```sh
-UNDERLYING=0x... NAME="Milli Wrapped NVDAc" SYMBOL=mwNVDAc DECIMALS=5 \
+UNDERLYING=0x... NAME="Milli Wrapped NVDAc" SYMBOL=m.wNVDAc DECIMALS=5 \
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC --broadcast --account <keystore>
 ```
 

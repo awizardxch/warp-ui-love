@@ -472,7 +472,7 @@ const EURe_TOKEN: Token = {
 // finely the Chia side can divide the stock:
 // - `milli: false`: wrapper with the stock's 8 decimals. CAT `wSPCXc.b`; one
 //   CAT is one stock token and one mojo is a thousandth of one.
-// - `milli: true`: wrapper with 5 decimals. CAT `mwSPCXc.b` (milli wrapped
+// - `milli: true`: wrapper with 5 decimals. CAT `m.wSPCXc.b` (milli wrapped
 //   SPCXc from Base); one CAT is a thousandth of a stock token and one mojo is
 //   a millionth, the way milliETH works for ETH.
 // Raw units are 1:1 with the stock in both; only the decimal point moves.
@@ -504,7 +504,7 @@ const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
 ]
 
 // Names of the wrapper ERC-20 on Base. The Chia CAT carries the same symbol plus ".b".
-export const wrapperSymbol = (stockSymbol: string, milli: boolean) => `${milli ? 'mw' : 'w'}${stockSymbol}`
+export const wrapperSymbol = (stockSymbol: string, milli: boolean) => `${milli ? 'm.w' : 'w'}${stockSymbol}`
 export const wrapperName = (stockSymbol: string, milli: boolean) => `${milli ? 'Milli Wrapped' : 'Wrapped'} ${stockSymbol}`
 
 const WRAPPED_STOCK_WARNING = (symbol: string, milli: boolean) =>
