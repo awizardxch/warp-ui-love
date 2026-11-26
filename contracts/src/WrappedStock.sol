@@ -11,9 +11,15 @@ pragma solidity 0.8.26;
 /// that can.
 ///
 /// Properties:
-/// - One wrapped unit is always redeemable for exactly one raw unit of the
+/// - One raw wrapped unit is always redeemable for exactly one raw unit of the
 ///   underlying token. Stock splits and dividends change the underlying's
 ///   multiplier, never raw balances, so the wrapper needs no split logic.
+/// - The wrapper may declare fewer decimals than the underlying. Nothing is
+///   scaled: only the position of the decimal point moves. With 8 underlying
+///   decimals and 5 here, one whole underlying token is 1,000 whole wrapped
+///   tokens (a "milli" wrapper, like milliETH). The bridge gives the Chia side
+///   10^(decimals - 3) raw units per mojo, so fewer decimals here means a
+///   finer smallest unit on Chia.
 /// - No owner, no upgrade path, no fees, no pause. Nothing here can be changed
 ///   after deployment.
 /// - Underlying tokens sent straight to this contract (not through `deposit`)
@@ -36,8 +42,11 @@ contract WrappedStock {
 
     /// @notice The wrapped B20 token.
     address public immutable underlying;
-    /// @notice Same as the underlying's decimals.
+    /// @notice Decimals of this wrapper: at least 3 (the bridge needs that)
+    /// and at most the underlying's. Display only; raw units are always 1:1.
     uint8 public immutable decimals;
+    /// @notice Decimals of the underlying token, read once at deployment.
+    uint8 public immutable underlyingDecimals;
 
     uint256 private constant WAD = 1e18;
 
@@ -47,6 +56,7 @@ contract WrappedStock {
     error ZeroAmount();
     error InvalidReceiver(address receiver);
     error InvalidUnderlying();
+    error InvalidDecimals(uint8 decimals, uint8 underlyingDecimals);
     error InsufficientBalance(address account, uint256 balance, uint256 needed);
     error InsufficientAllowance(address spender, uint256 allowance, uint256 needed);
     error UnderlyingTransferFailed();
@@ -60,10 +70,15 @@ contract WrappedStock {
         _entered = 0;
     }
 
-    constructor(address underlying_, string memory name_, string memory symbol_) {
+    constructor(address underlying_, string memory name_, string memory symbol_, uint8 decimals_) {
         if (underlying_ == address(0) || underlying_.code.length == 0) revert InvalidUnderlying();
+        uint8 underlyingDecimals_ = IUnderlying(underlying_).decimals();
+        // Below 3 the bridge cannot scale a mojo; above the underlying's, one
+        // raw unit here would be worth less than the underlying can represent.
+        if (decimals_ < 3 || decimals_ > underlyingDecimals_) revert InvalidDecimals(decimals_, underlyingDecimals_);
         underlying = underlying_;
-        decimals = IUnderlying(underlying_).decimals();
+        underlyingDecimals = underlyingDecimals_;
+        decimals = decimals_;
         name = name_;
         symbol = symbol_;
     }
@@ -173,7 +188,8 @@ contract WrappedStock {
     }
 
     /// @notice The underlying's share multiplier, scaled by 1e18: how many
-    /// shares one whole token represents. Returns 1e18 if the underlying does
+    /// shares one whole UNDERLYING token represents (not one whole wrapped
+    /// token, when the decimals differ). Returns 1e18 if the underlying does
     /// not report one. Display only; it never affects balances here.
     function uiMultiplier() external view returns (uint256) {
         (bool ok, bytes memory data) = underlying.staticcall(abi.encodeCall(IUnderlying.multiplier, ()));

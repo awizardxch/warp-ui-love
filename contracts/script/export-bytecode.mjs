@@ -32,6 +32,7 @@ export const WrappedStockConstructorABI = [
       { name: "underlying_", type: "address" },
       { name: "name_", type: "string" },
       { name: "symbol_", type: "string" },
+      { name: "decimals_", type: "uint8" },
     ],
   },
 ] as const;

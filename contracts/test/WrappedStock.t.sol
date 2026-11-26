@@ -136,7 +136,7 @@ contract WrappedStockTest is Test {
 
     function setUp() public {
         stock = new MockStock();
-        wrapped = new WrappedStock(address(stock), "Wrapped MOCKc", "wMOCKc");
+        wrapped = new WrappedStock(address(stock), "Wrapped MOCKc", "wMOCKc", 8);
         stock.mint(alice, 1_000e8);
         vm.prank(alice);
         stock.approve(address(wrapped), type(uint256).max);
@@ -152,15 +152,16 @@ contract WrappedStockTest is Test {
         assertEq(wrapped.name(), "Wrapped MOCKc");
         assertEq(wrapped.symbol(), "wMOCKc");
         assertEq(wrapped.decimals(), 8);
+        assertEq(wrapped.underlyingDecimals(), 8);
         assertEq(wrapped.underlying(), address(stock));
         assertEq(wrapped.totalSupply(), 0);
     }
 
     function test_constructor_rejectsNonContract() public {
         vm.expectRevert(WrappedStock.InvalidUnderlying.selector);
-        new WrappedStock(address(0), "x", "x");
+        new WrappedStock(address(0), "x", "x", 8);
         vm.expectRevert(WrappedStock.InvalidUnderlying.selector);
-        new WrappedStock(makeAddr("eoa"), "x", "x");
+        new WrappedStock(makeAddr("eoa"), "x", "x", 8);
     }
 
     function test_constructor_acceptsOneByteCode() public {
@@ -168,7 +169,7 @@ contract WrappedStockTest is Test {
         address native = makeAddr("native");
         vm.etch(native, hex"ef");
         vm.mockCall(native, abi.encodeWithSignature("decimals()"), abi.encode(uint8(8)));
-        WrappedStock w = new WrappedStock(native, "x", "x");
+        WrappedStock w = new WrappedStock(native, "x", "x", 8);
         assertEq(w.decimals(), 8);
     }
 
@@ -275,7 +276,7 @@ contract WrappedStockTest is Test {
 
     function test_deposit_rejectsFeeOnTransfer() public {
         FeeStock fee = new FeeStock();
-        WrappedStock w = new WrappedStock(address(fee), "x", "x");
+        WrappedStock w = new WrappedStock(address(fee), "x", "x", 8);
         fee.mint(alice, 100e8);
         vm.startPrank(alice);
         fee.approve(address(w), type(uint256).max);
@@ -287,7 +288,7 @@ contract WrappedStockTest is Test {
 
     function test_deposit_rejectsFalseReturn() public {
         FalseStock bad = new FalseStock();
-        WrappedStock w = new WrappedStock(address(bad), "x", "x");
+        WrappedStock w = new WrappedStock(address(bad), "x", "x", 8);
         bad.mint(alice, 1e8);
         vm.prank(alice);
         vm.expectRevert(WrappedStock.UnderlyingTransferFailed.selector);
@@ -296,7 +297,7 @@ contract WrappedStockTest is Test {
 
     function test_deposit_rejectsOddReturnValue() public {
         OddReturnStock odd = new OddReturnStock();
-        WrappedStock w = new WrappedStock(address(odd), "x", "x");
+        WrappedStock w = new WrappedStock(address(odd), "x", "x", 8);
         odd.mint(alice, 1e8);
         vm.prank(alice);
         vm.expectRevert(WrappedStock.UnderlyingTransferFailed.selector);
@@ -306,7 +307,7 @@ contract WrappedStockTest is Test {
 
     function test_noReturnValueTokenWorks() public {
         NoReturnStock plain = new NoReturnStock();
-        WrappedStock w = new WrappedStock(address(plain), "x", "x");
+        WrappedStock w = new WrappedStock(address(plain), "x", "x", 6);
         plain.mint(alice, 3e8);
         vm.startPrank(alice);
         w.deposit(3e8);
@@ -319,7 +320,7 @@ contract WrappedStockTest is Test {
 
     function test_withdraw_rollsBackWhenUnderlyingTransferFails() public {
         FrozenOutStock frozen = new FrozenOutStock();
-        WrappedStock w = new WrappedStock(address(frozen), "x", "x");
+        WrappedStock w = new WrappedStock(address(frozen), "x", "x", 8);
         frozen.mint(alice, 5e8);
         vm.startPrank(alice);
         frozen.approve(address(w), type(uint256).max);
@@ -346,7 +347,7 @@ contract WrappedStockTest is Test {
 
     function test_reentrancyBlocked() public {
         ReentrantStock evil = new ReentrantStock();
-        WrappedStock w = new WrappedStock(address(evil), "x", "x");
+        WrappedStock w = new WrappedStock(address(evil), "x", "x", 8);
         evil.setTarget(w);
         evil.mint(alice, 10e8);
         vm.prank(alice);
@@ -386,7 +387,7 @@ contract WrappedStockTest is Test {
 
     function test_multiplier_defaultsWhenMissing() public {
         PlainToken plain = new PlainToken();
-        WrappedStock w = new WrappedStock(address(plain), "x", "x");
+        WrappedStock w = new WrappedStock(address(plain), "x", "x", 6);
         assertEq(w.uiMultiplier(), 1e18);
         assertEq(w.decimals(), 6);
     }
@@ -484,6 +485,117 @@ contract WrappedStockTest is Test {
                 assertTrue(writes[i] != keccak256(abi.encode(bridge, slot)), "wrote another candidate key");
             }
         }
+    }
+
+    // --- milli wrappers: fewer decimals than the stock ----------------------
+
+    function _milli() internal returns (WrappedStock w) {
+        w = new WrappedStock(address(stock), "Wrapped milliMOCKc", "wmilliMOCKc", 5);
+        vm.prank(alice);
+        stock.approve(address(w), type(uint256).max);
+    }
+
+    function test_constructor_rejectsDecimalsOutOfRange() public {
+        // Below 3 the bridge's 10^(decimals - 3) underflows.
+        vm.expectRevert(abi.encodeWithSelector(WrappedStock.InvalidDecimals.selector, uint8(2), uint8(8)));
+        new WrappedStock(address(stock), "x", "x", 2);
+        // More decimals than the stock would promise precision that does not exist.
+        vm.expectRevert(abi.encodeWithSelector(WrappedStock.InvalidDecimals.selector, uint8(9), uint8(8)));
+        new WrappedStock(address(stock), "x", "x", 9);
+
+        assertEq(new WrappedStock(address(stock), "x", "x", 3).decimals(), 3);
+        assertEq(new WrappedStock(address(stock), "x", "x", 8).decimals(), 8);
+    }
+
+    function test_milli_metadata() public {
+        WrappedStock w = _milli();
+        assertEq(w.decimals(), 5);
+        assertEq(w.underlyingDecimals(), 8);
+        assertEq(w.underlying(), address(stock));
+    }
+
+    /// One whole stock token (1e8 raw) wraps to the same 1e8 raw units, which
+    /// read as 1,000 whole wrapped tokens at 5 decimals. Nothing is scaled.
+    function test_milli_wrapIsRawOneToOne() public {
+        WrappedStock w = _milli();
+        vm.startPrank(alice);
+        w.deposit(1e8);
+        assertEq(w.balanceOf(alice), 1e8);
+        assertEq(w.balanceOf(alice), 1_000 * 10 ** uint256(w.decimals()));
+        assertEq(w.totalSupply(), 1e8);
+        assertEq(w.backing(), 1e8);
+        assertEq(stock.balanceOf(alice), 999e8);
+
+        // An amount that is not a whole number of wrapped "cents" still round-trips exactly.
+        w.deposit(1);
+        w.withdraw(1e8 + 1);
+        vm.stopPrank();
+        assertEq(w.balanceOf(alice), 0);
+        assertEq(w.totalSupply(), 0);
+        assertEq(stock.balanceOf(alice), 1_000e8);
+    }
+
+    /// The bridge moves 10^(decimals - 3) raw units per mojo. At 5 decimals
+    /// that is 100 raw units: one mojo is a millionth of a whole stock token,
+    /// and one whole CAT (1,000 mojos) is a thousandth.
+    function test_milli_bridgeUnitIsAMillionthOfAToken() public {
+        WrappedStock w = _milli();
+        uint256 rawPerMojo = 10 ** (uint256(w.decimals()) - 3);
+        assertEq(rawPerMojo, 100);
+        assertEq(1e8 / rawPerMojo, 1_000_000, "mojos per whole stock token");
+
+        vm.startPrank(alice);
+        w.deposit(1e8);
+        w.approve(bridge, type(uint256).max);
+        vm.stopPrank();
+
+        // Same shape as ERC20Bridge.bridgeToChia for a single mojo.
+        vm.prank(bridge);
+        w.transferFrom(alice, bridge, 1 * rawPerMojo);
+        assertEq(w.balanceOf(bridge), 100);
+        // The 8-decimal wrapper needs 1e5 raw units for the same single mojo.
+        assertEq(10 ** (uint256(wrapped.decimals()) - 3), 100_000);
+    }
+
+    /// The decimals setting must not move the balance mapping: the signer
+    /// still finds the bridge's balance in slot 0 and nowhere else.
+    function test_milli_signerStillFindsBalanceInSlotZero() public {
+        WrappedStock w = _milli();
+        vm.startPrank(alice);
+        w.deposit(5e8);
+        w.approve(bridge, type(uint256).max);
+        vm.stopPrank();
+        vm.prank(bridge);
+        w.transferFrom(alice, bridge, 123_456_700);
+
+        uint256 matches;
+        uint256 matchedSlot = type(uint256).max;
+        for (uint256 slot = 0; slot < 64; slot++) {
+            if (uint256(vm.load(address(w), keccak256(abi.encode(bridge, slot)))) == 123_456_700) {
+                matches++;
+                matchedSlot = slot;
+            }
+        }
+        assertEq(matches, 1, "balance must sit in exactly one candidate slot");
+        assertEq(matchedSlot, 0, "balance mapping must be slot 0");
+    }
+
+    function testFuzz_anyDecimalsRoundTripIsExact(uint8 decimals_, uint128 amount, uint128 back) public {
+        decimals_ = uint8(bound(decimals_, 3, 8));
+        amount = uint128(bound(amount, 1, 1_000e8));
+        back = uint128(bound(back, 1, amount));
+        WrappedStock w = new WrappedStock(address(stock), "x", "x", decimals_);
+        vm.startPrank(alice);
+        stock.approve(address(w), type(uint256).max);
+        w.deposit(amount);
+        w.withdraw(back);
+        vm.stopPrank();
+
+        assertEq(w.decimals(), decimals_);
+        assertEq(w.balanceOf(alice), amount - back);
+        assertEq(w.totalSupply(), amount - back);
+        assertEq(w.backing(), w.totalSupply());
+        assertEq(stock.balanceOf(alice), 1_000e8 - amount + back);
     }
 
     // --- fuzz ------------------------------------------------------------

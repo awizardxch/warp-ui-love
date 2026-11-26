@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import * as GreenWeb from 'greenwebjs';
-import { getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
+import { getStockSymbol, getWrappedStockInfo, NETWORKS, Network, NetworkType, TESTNET, TOKENS, WALLET_BATCHING_ENABLED, wagmiConfig } from "../config"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { getStepThreeURL } from "./urls"
@@ -106,7 +106,7 @@ function StepThreeEVMDestination({
       const info = getWrappedStockInfo(token, destinationChain.id)
       if (info !== undefined && info.contractAddress.toLowerCase() === asset) {
         stockRelease = {
-          symbol: token.symbol,
+          symbol: getStockSymbol(token),
           wrapper: info.contractAddress,
           receiver: '0x' + contents[1].slice(-40).toLowerCase(),
           amountMojo: BigInt(contents[2]),
@@ -728,7 +728,7 @@ function FinalEVMTxConfirmer({
         if (info !== undefined && info.contractAddress.toLowerCase() === asset) {
           unwrapPrompt = (
             <UnwrapPrompt
-              symbol={token.symbol}
+              symbol={getStockSymbol(token)}
               tokenInfo={info}
               chain={destinationChain}
               claimTxId={txId as `0x${string}`}

@@ -10,7 +10,7 @@ import { useWeb3Modal } from "@web3modal/wagmi/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CopyableLongHexString } from "@/components/CopyableHexString"
-import { BASE_NETWORK, WRAPPED_STOCKS, wagmiConfig } from "../../config"
+import { BASE_NETWORK, MILLI_SHIFT, WRAPPED_STOCKS, wagmiConfig, wrapperName, wrapperSymbol } from "../../config"
 import { getWrappedERC20AssetID } from "../../drivers/erc20bridge"
 import { WrappedStockABI } from "../../drivers/wrappedStock"
 import { WRAPPED_STOCK_BYTECODE, WrappedStockConstructorABI } from "../../drivers/wrappedStockBytecode"
@@ -34,29 +34,35 @@ type Deployed = {
 
 export default function DeployWrapperPage() {
   const [customAddress, setCustomAddress] = useState("")
+  const [customMilli, setCustomMilli] = useState(true)
   const custom = customAddress.trim()
   const customValid = isAddress(custom)
-  const alreadyListed = WRAPPED_STOCKS.find((stock) => stock.underlying.toLowerCase() === custom.toLowerCase())
+  const alreadyListed = WRAPPED_STOCKS.find((stock) => stock.underlying.toLowerCase() === custom.toLowerCase() && stock.milli === customMilli)
 
   return (
     <div className="max-w-6xl mt-12 mx-auto w-full p-4 xl:p-0">
       <h2 className="mb-2 text-xl font-light">Deploy Stock Wrappers</h2>
       <div className="mb-6 font-light opacity-80 max-w-3xl flex flex-col gap-2">
         <p>
-          Deploys a WrappedStock contract on {BASE_NETWORK.displayName} from the connected wallet. Every stock gets its own wrapper:
-          one contract wraps exactly one token. Each deployment is a real transaction that costs gas, and a wrapper has no owner
-          and cannot be changed or removed afterwards.
+          Deploys a WrappedStock contract on {BASE_NETWORK.displayName} from the connected wallet. One contract wraps exactly one
+          token. Each deployment is a real transaction that costs gas, and a wrapper has no owner and cannot be changed or
+          removed afterwards.
         </p>
         <p>
-          After deploying, add the printed line to <code>WRAPPED_STOCKS_BASE_MAINNET</code> in <code>src/app/bridge/config.tsx</code>.
-          That lists the stock. Do one minimum deposit (0.002 token) end to end before listing it publicly:
-          no wrapper deposit has been signed by the validators yet.
+          A stock can have two wrappers. The plain one keeps the stock&apos;s decimals: on Chia one token is one stock token and the
+          smallest unit is a thousandth of it. The milli one has three fewer decimals: on Chia one token is a thousandth of a
+          stock token and the smallest unit is a millionth. Both hold the stock 1:1.
+        </p>
+        <p>
+          After deploying, put the printed line in <code>WRAPPED_STOCKS_BASE_MAINNET</code> in <code>src/app/bridge/config.tsx</code>.
+          That lists it. Do one small deposit end to end before listing it publicly: no deposit of a milli wrapper has been
+          signed by the validators yet.
         </p>
       </div>
 
       <div className="grid xl:grid-cols-2 gap-4">
         {WRAPPED_STOCKS.map((stock) => (
-          <DeployCard key={stock.symbol} expectedSymbol={stock.symbol} underlying={stock.underlying} configuredWrapper={stock.wrapper} />
+          <DeployCard key={`${stock.symbol}-${stock.milli}`} expectedSymbol={stock.symbol} underlying={stock.underlying} configuredWrapper={stock.wrapper} milli={stock.milli} />
         ))}
       </div>
 
@@ -71,13 +77,17 @@ export default function DeployWrapperPage() {
         value={customAddress}
         onChange={(e) => setCustomAddress(e.target.value)}
       />
+      <label className="mt-3 flex items-center gap-2 font-light">
+        <input type="checkbox" checked={customMilli} onChange={(e) => setCustomMilli(e.target.checked)} />
+        Milli wrapper (counts in thousandths on Chia). Untick for a plain one.
+      </label>
       <div className="mt-4 grid xl:grid-cols-2 gap-4">
         {custom !== "" && !customValid && <p className="font-light text-destructive">That is not a valid address.</p>}
         {customValid && alreadyListed !== undefined && (
-          <p className="font-light">{alreadyListed.symbol} is already in the list above.</p>
+          <p className="font-light">That wrapper for {alreadyListed.symbol} is already in the list above.</p>
         )}
         {customValid && alreadyListed === undefined && (
-          <DeployCard key={custom.toLowerCase()} underlying={custom as `0x${string}`} configuredWrapper={null} />
+          <DeployCard key={`${custom.toLowerCase()}-${customMilli}`} underlying={custom as `0x${string}`} configuredWrapper={null} milli={customMilli} />
         )}
       </div>
 
@@ -88,11 +98,13 @@ export default function DeployWrapperPage() {
   )
 }
 
-function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
+function DeployCard({ expectedSymbol, underlying, configuredWrapper, milli }: {
   // Set for stocks from the config: the token must report this symbol.
   expectedSymbol?: string,
   underlying: `0x${string}`,
   configuredWrapper: `0x${string}` | null,
+  // A milli wrapper has three fewer decimals than the token.
+  milli: boolean,
 }) {
   const { address } = useAccount()
   const wagmiChainId = useChainId()
@@ -125,12 +137,14 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
   const tokenSymbol = stockInfo?.[0]
   const tokenDecimals = stockInfo?.[1]
   const symbolMatches = tokenSymbol !== undefined && (expectedSymbol === undefined || tokenSymbol === expectedSymbol)
-  // The bridge scales by 10^(decimals - 3); anything below 3 cannot be bridged.
-  const decimalsOk = tokenDecimals !== undefined && tokenDecimals >= 3
-  const title = expectedSymbol ?? tokenSymbol ?? "Unknown token"
+  const wrapperDecimals = tokenDecimals === undefined ? undefined : tokenDecimals - (milli ? MILLI_SHIFT : 0)
+  // The bridge scales by 10^(decimals - 3); a wrapper below 3 cannot be bridged.
+  const decimalsOk = wrapperDecimals !== undefined && wrapperDecimals >= 3
+  const stockTitle = expectedSymbol ?? tokenSymbol ?? "Unknown token"
+  const title = milli ? `${stockTitle} (milli)` : stockTitle
 
-  const name = nameEdit ?? (tokenSymbol !== undefined ? `Wrapped ${tokenSymbol}` : "")
-  const wrappedSymbol = symbolEdit ?? (tokenSymbol !== undefined ? `w${tokenSymbol}` : "")
+  const name = nameEdit ?? (tokenSymbol !== undefined ? wrapperName(tokenSymbol, milli) : "")
+  const wrappedSymbol = symbolEdit ?? (tokenSymbol !== undefined ? wrapperSymbol(tokenSymbol, milli) : "")
   const namesValid = name.trim() !== "" && wrappedSymbol.trim() !== ""
 
   const deploy = async () => {
@@ -146,7 +160,7 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
       const txHash = await walletClient.deployContract({
         abi: WrappedStockConstructorABI,
         bytecode: WRAPPED_STOCK_BYTECODE,
-        args: [underlying, name.trim(), wrappedSymbol.trim()],
+        args: [underlying, name.trim(), wrappedSymbol.trim(), wrapperDecimals!],
       })
       setBusy("Waiting for confirmation")
       const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash, chainId })
@@ -159,14 +173,17 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
       setBusy("Checking the deployed contract")
       let verified = false
       try {
-        const [onchainUnderlying, onchainDecimals] = await readContracts(wagmiConfig, {
+        const [onchainUnderlying, onchainDecimals, onchainStockDecimals] = await readContracts(wagmiConfig, {
           allowFailure: false,
           contracts: [
             { address: wrapper, abi: WrappedStockABI, functionName: "underlying", chainId },
             { address: wrapper, abi: WrappedStockABI, functionName: "decimals", chainId },
+            { address: wrapper, abi: WrappedStockABI, functionName: "underlyingDecimals", chainId },
           ],
         })
-        verified = onchainUnderlying.toLowerCase() === underlying.toLowerCase() && onchainDecimals === tokenDecimals
+        verified = onchainUnderlying.toLowerCase() === underlying.toLowerCase()
+          && onchainDecimals === wrapperDecimals
+          && onchainStockDecimals === tokenDecimals
       } catch (_) {
         verified = false
       }
@@ -186,7 +203,7 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-xl">{title}</p>
         <p className="text-sm opacity-80">
-          {stockInfo === undefined ? (stockReadFailed ? "Could not read the token" : "Reading token…") : `${tokenDecimals} decimals`}
+          {stockInfo === undefined ? (stockReadFailed ? "Could not read the token" : "Reading token…") : `${tokenDecimals} decimals, wrapper ${wrapperDecimals}`}
         </p>
       </div>
       <div className="text-sm opacity-80 flex items-center gap-2">
@@ -203,7 +220,7 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
         <p className="text-sm text-destructive">This address reports the symbol {tokenSymbol}, not {expectedSymbol}. Deployment is disabled.</p>
       )}
       {tokenDecimals !== undefined && !decimalsOk && (
-        <p className="text-sm text-destructive">This token has fewer than 3 decimals and cannot be bridged. Deployment is disabled.</p>
+        <p className="text-sm text-destructive">This token has too few decimals for this wrapper: the wrapper needs at least 3. Deployment is disabled.</p>
       )}
       {configuredWrapper !== null && deployed === null && (
         <p className="text-sm border rounded-md px-3 py-2">A wrapper for {title} is already configured. Deploying another creates a second, separate wrapped token.</p>
@@ -241,7 +258,7 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
             <>
               <p className={deployed.verified ? "" : "text-destructive"}>
                 {deployed.verified
-                  ? `Deployed and checked: it wraps ${tokenSymbol} with ${tokenDecimals} decimals.`
+                  ? `Deployed and checked: it wraps ${tokenSymbol} (${tokenDecimals} decimals) with ${wrapperDecimals} decimals of its own.`
                   : "Deployed, but the on-chain check did not confirm it. Do not configure this address until you have verified it."}
               </p>
               <p>
@@ -249,7 +266,7 @@ function DeployCard({ expectedSymbol, underlying, configuredWrapper }: {
               </p>
               <p className="opacity-80">Config line:</p>
               <code className="block break-all bg-background rounded-md px-3 py-2">
-                {`{ symbol: '${tokenSymbol}', underlying: '${underlying}', wrapper: '${deployed.address}' },`}
+                {`{ symbol: '${tokenSymbol}', underlying: '${underlying}', wrapper: '${deployed.address}', milli: ${milli} },`}
               </code>
               <p className="opacity-80">This page does not remember the address after a reload. Copy it now.</p>
             </>

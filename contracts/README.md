@@ -17,11 +17,28 @@ where the signer looks.
 - `deposit` / `depositFor` wrap; `withdraw` / `withdrawTo` unwrap. Always 1:1 in
   raw units.
 - No owner, no upgrade path, no fee, no pause.
+- A wrapper may declare fewer decimals than its stock (at least 3). Nothing is
+  scaled; only the decimal point moves. See "Plain and milli wrappers" below.
 - A deposit that does not arrive in full (fee-on-transfer, rebase) reverts.
 - `uiMultiplier()` passes through the stock's share multiplier for display. It
   never affects balances: splits and dividends change the multiplier, not raw
   units.
 - Stock sent straight to the wrapper, not through `deposit`, is stuck for good.
+
+## Plain and milli wrappers
+
+The bridge gives the Chia side `10^(decimals - 3)` raw units per mojo, using the
+wrapper's `decimals()`. A stock can therefore have two wrappers, which differ
+only in how finely Chia can divide it:
+
+| | Wrapper decimals | Base symbol | Chia CAT | 1 CAT | 1 mojo |
+|---|---|---|---|---|---|
+| Plain | 8 (the stock's) | `wSPCXc` | `wSPCXc.b` | 1 stock token | 0.001 |
+| Milli | 5 | `m.wSPCXc` | `m.wSPCXc.b` | 0.001 stock token | 0.000001 |
+
+Both hold the stock 1:1 in raw units, and both can be listed at once. They are
+separate contracts with separate Chia asset ids: one cannot be redeemed through
+the other. To move between them, unwrap on Base and wrap again.
 
 ## What it does not fix
 
@@ -66,7 +83,8 @@ of the three stocks. It sends nothing.
 
 ## Deploy and list
 
-One wrapper per stock. Deployment is a real transaction: review it first.
+One contract per stock and unit (plain or milli). Deployment is a real
+transaction: review it first.
 
 From a browser wallet: run the web app locally (`npm run dev`) and open
 `/bridge/wrap/deploy`. The page deploys the compiled contract, checks what
@@ -77,9 +95,10 @@ contract, regenerate it with `node contracts/script/export-bytecode.mjs`.
 Or from the command line:
 
 ```sh
-UNDERLYING=0x... NAME="Wrapped NVDAc" SYMBOL=wNVDAc \
+UNDERLYING=0x... NAME="Milli Wrapped NVDAc" SYMBOL=m.wNVDAc DECIMALS=5 \
 forge script script/Deploy.s.sol --rpc-url $BASE_RPC --broadcast --account <keystore>
 ```
 
-Then set that stock's `wrapper` address in `WRAPPED_STOCKS_BASE_MAINNET` in
+Then set the `wrapper` address of that stock's entry (`milli: true` or `false`)
+in `WRAPPED_STOCKS_BASE_MAINNET` in
 `src/app/bridge/config.tsx`. The Chia asset id is derived from it automatically.

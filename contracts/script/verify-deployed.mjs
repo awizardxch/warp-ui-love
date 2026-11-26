@@ -55,14 +55,16 @@ for (let i = 0; i < args.length; i += 2) {
     const code = await provider.getCode(wrapper);
     const stockSymbol = await call(underlying, tokenAbi, "symbol");
     const stockDecimals = await call(underlying, tokenAbi, "decimals");
+    const wrapperDecimals = await call(wrapper, wrapperAbi, "decimals");
     const checks = [
       ["runtime code is the compiled WrappedStock", code !== "0x" && maskImmutables(code) === expectedCode],
       ["wraps the expected token", (await call(wrapper, wrapperAbi, "underlying")) === underlying],
-      ["decimals match the token", (await call(wrapper, wrapperAbi, "decimals")) === stockDecimals],
+      ["records the token's decimals", (await call(wrapper, wrapperAbi, "underlyingDecimals")) === stockDecimals],
+      ["own decimals between 3 and the token's", wrapperDecimals >= 3n && wrapperDecimals <= stockDecimals],
       ["fully backed", (await call(wrapper, wrapperAbi, "backing")) >= (await call(wrapper, wrapperAbi, "totalSupply"))],
     ];
     console.log(`${stockSymbol}: wrapper ${wrapper}`);
-    console.log(`  name "${await call(wrapper, wrapperAbi, "name")}"  symbol "${await call(wrapper, wrapperAbi, "symbol")}"  supply ${ethers.formatUnits(await call(wrapper, wrapperAbi, "totalSupply"), stockDecimals)}`);
+    console.log(`  name "${await call(wrapper, wrapperAbi, "name")}"  symbol "${await call(wrapper, wrapperAbi, "symbol")}"  decimals ${wrapperDecimals} (token ${stockDecimals})  supply ${ethers.formatUnits(await call(wrapper, wrapperAbi, "totalSupply"), stockDecimals)} ${stockSymbol}`);
     for (const [label, ok] of checks) {
       console.log(`  ${ok ? "ok  " : "FAIL"} ${label}`);
       if (!ok) allOk = false;
