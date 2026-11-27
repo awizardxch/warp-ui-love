@@ -494,9 +494,13 @@ export const STOCK_DECIMALS = 8
 export const MILLI_SHIFT = 3
 
 const WRAPPED_STOCKS_BASE_MAINNET: WrappedStockConfig[] = [
-  { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4', milli: false },
-  { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567', milli: false },
-  { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7', milli: false },
+  // Whole-token wrappers (8 decimals, CAT wSPCXc.b etc.): retired 2026-11-27 in favor of the milli
+  // wrappers below; their Forge pools were emptied and hidden. Commented out, not deleted, so they
+  // can be listed again: the contracts stay deployed and anyone holding one can still unwrap it on
+  // Base by calling the wrapper's `withdraw` directly.
+  // { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x1209B7d5DeAC8EA458696b54558300a839eF4cf4', milli: false },
+  // { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x0D8b4Fd641183350f41219180F375762E3A77567', milli: false },
+  // { symbol: 'ANTc', underlying: '0xb20000000000000000000016e38FD364d271Ba28', wrapper: '0x91d2cC66952945a4b74b18ef356942e92f473aE7', milli: false },
   // Milli wrappers (5 decimals), deployed 2026-11-25.
   { symbol: 'SPCXc', underlying: '0xb2000000000000000000007b9fcbd005511aCBd5', wrapper: '0x139d3398e7563FDd22172926f4391ebC84C9f402', milli: true },
   { symbol: 'NVDAc', underlying: '0xb20000000000000000000078ee7ce2fE4908108C', wrapper: '0x362c5E8142a6DF57b2eb3b321F0dE2279eDD5e22', milli: true },
