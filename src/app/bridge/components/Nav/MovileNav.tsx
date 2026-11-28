@@ -51,6 +51,7 @@ function MobileNav() {
             {/* Social Icons */}
             <li className="mt-8">
               <ul className="flex gap-2">
+                <li><AlertDialogCancel asChild><Link aria-label="The Forge" title="The Forge" className="w-full flex items-center justify-center transition-colors focus-visible:outline-none px-1 ring-offset-accent rounded-full focus-visible:ring-2 aspect-square focus-visible:ring-ring focus-visible:ring-offset-2 text-base leading-none" href="https://forge.awizard.dev" target="_blank"><span aria-hidden="true">⚒️</span></Link></AlertDialogCancel></li>
                 <li><AlertDialogCancel asChild><Link className="w-full flex transition-colors focus-visible:outline-none px-1 ring-offset-accent rounded-full focus-visible:ring-2 aspect-square focus-visible:ring-ring focus-visible:ring-offset-2" href="https://github.com/warpdotgreen" target="_blank"><GithubIcon /></Link></AlertDialogCancel></li>
                 <li><AlertDialogCancel asChild><Link className="w-full flex transition-colors focus-visible:outline-none px-1 ring-offset-accent rounded-full focus-visible:ring-2 aspect-square focus-visible:ring-ring focus-visible:ring-offset-2" href="https://twitter.com/warpdotgreen" target="_blank"><XIcon /></Link></AlertDialogCancel></li>
               </ul>
