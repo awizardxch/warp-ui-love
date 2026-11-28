@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { ArrowRight, ArrowRightLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { BalanceLine, isOverBalance, PercentPills, useBridgeBalance } from "../components/AmountBalance"
 
 
 export default function StepZero() {
@@ -68,6 +69,10 @@ export default function StepZero() {
   }
 
   const { walletConnected, address } = useWallet()
+
+  // The From chain's wallet balance of the selected asset (the Forge's "You Pay").
+  const balance = useBridgeBalance(token, NETWORKS.find((n: Network) => n.id === sourceNetworkId))
+  const overBalance = isOverBalance(balance, amount)
 
   const updateDestinationAddress = (destNetworkId: string) => {
     if (account?.address !== undefined && NETWORKS.find((n: Network) => n.id === destNetworkId)?.type === NetworkType.EVM) {
@@ -136,19 +141,25 @@ export default function StepZero() {
   return (
     <>
       <div className="max-w-md mx-auto w-full grow flex flex-col justify-center py-8">
-        <div className="p-6">
+        <div className="glow-shell forge-panel forge-card p-4 mx-4 sm:mx-0">
           <div className="space-y-6">
             <div className="space-y-2">
 
               {/* Amount Input & Token Selector */}
-              <div className="flex flex-col gap-4 bg-accent border rounded-lg p-2 animate-[delayed-fade-in_0.7s_ease_forwards]">
+              <div className="forge-card flex flex-col gap-1 bg-accent border rounded-lg p-2 animate-[delayed-fade-in_0.7s_ease_forwards]">
+
+                <div className="flex items-center justify-between gap-2 min-h-5 px-1">
+                  <span className="text-sm opacity-80">You send</span>
+                  <PercentPills balance={balance} value={amount} onPick={setAmount} />
+                </div>
 
                 <div className="flex items-center h-14 w-full gap-2">
                   <label htmlFor="tokenSelector" className="text-xl pr-4 mr-auto sr-only">Token amount</label>
                   <Input
                     type="text"
                     placeholder="Amount"
-                    className="text-xl h-full border-0"
+                    className={cn("text-xl h-full border-0", overBalance && "ring-1 ring-inset ring-red-500")}
+                    aria-invalid={overBalance || undefined}
                     pattern="^\d*(\.\d{0,8})?$"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -164,10 +175,13 @@ export default function StepZero() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="px-1 min-h-4">
+                  <BalanceLine balance={balance} amount={amount} />
+                </div>
               </div>
 
               {/* Chain Selector/Switcher */}
-              <div className="bg-accent border border-input rounded-lg p-2 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <div className="forge-card bg-accent border border-input rounded-lg p-2 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <BlockchainDropdown
                   label="From"
                   options={sourceNetworks}
@@ -197,10 +211,12 @@ export default function StepZero() {
                     type="submit"
                     className="w-full h-14 bg-theme-purple hover:bg-theme-purple text-primary hover:opacity-80 text-xl"
                     onClick={goToFirstStep}
-                    disabled={Boolean(!amount) || !walletConnected || account?.address == undefined}
+                    disabled={Boolean(!amount) || !walletConnected || account?.address == undefined || overBalance}
                   >
                     {
                       (!walletConnected || account?.address == undefined) ? "Connect Wallets First"
+                        :
+                        overBalance ? "Insufficient balance"
                         :
                         Boolean(amount) ? "Bridge" : "Enter an Amount"
                     }

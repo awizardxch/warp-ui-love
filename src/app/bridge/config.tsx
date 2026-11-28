@@ -19,6 +19,8 @@ export const SITE_ICON_URL = 'https://warp.awizard.dev/warp-green-icon.png';
 //export const ETH_RPC_ENV: string = getEnvVar("ETH_RPC");
 export const WATCHER_API_ROOT = TESTNET ? 'https://watcher-api.testnet.warp.green/' : 'https://watcher-api.warp.green/';
 export const STATUS_URL = TESTNET ? 'https://warp-validators.bufflehead.org/' : 'https://status.warp.green/';
+// The network fee a Chia-side bridge offer carries (StepOne's ChiaButton).
+export const CHIA_OFFER_FEE_MOJOS = 2500000000;
 
 export enum NetworkType {
   COINSET = 'coinset',

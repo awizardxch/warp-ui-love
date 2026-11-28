@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { getChiaUnitSymbol, getEvmTokenDecimals, getEvmUnitShift, getStockSymbol, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
+import { CHIA_OFFER_FEE_MOJOS, getChiaUnitSymbol, getEvmTokenDecimals, getEvmUnitShift, getStockSymbol, getWrappedStockInfo, Network, NetworkType, Token, TOKENS, wagmiConfig } from "../config"
 import { ethers } from "ethers"
 import { useAccount, useReadContract, useTransactionConfirmations, useWriteContract, useChainId, useConfig, useSwitchChain, useBalance, useReadContracts } from "wagmi"
 import * as GreenWeb from 'greenwebjs'
@@ -592,7 +592,7 @@ function ChiaButton({
       const params = {
         offerAssets: offerAssets,
         requestAssets: [],
-        fee: 2500000000,
+        fee: CHIA_OFFER_FEE_MOJOS,
       }
       offer = await createOffer(params)
     } catch (e) {

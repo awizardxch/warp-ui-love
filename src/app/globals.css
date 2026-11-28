@@ -104,3 +104,109 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+/* ── The Forge look ──────────────────────────────────────────────────────
+   Ported from the Forge (forge.awizard.dev, chia-cfmm src/App.css): the glow
+   tokens, the animated circuit-board background (components/GridEnergy.tsx draws
+   on .grid-energy), the soft cyan halo around a page's primary container
+   (.glow-shell), the cyan-bordered glowing card (.glow-card), and the hover glow
+   on the card under the cursor. Only the Forge's non-colliding token names are
+   brought over: warp's Tailwind theme keeps --accent, --border and the rest. */
+:root {
+  --text-color:   #e0f7ff;
+  --border-color: #00d9ff;
+  --glow-inner:   #ff6600;
+  --glow-outer:   #00d9ff;
+
+  --border-w: 2.5px;
+  --glow-r:   10;
+  --glow-s:   30;
+  --glow-far: #1a082b;
+  --glow-f:   36;
+  --glow-b1:  5;
+  --glow-b2:  8;
+
+  --bg-deep:  #060810;
+  --bg-card:  rgba(25, 15, 20, 0.93);
+}
+
+/* The page shell sits above the fixed background. 100dvh, with 100vh for
+   anything that does not know it, so a phone's shell is the visible viewport. */
+.app-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: var(--bg-deep);
+}
+
+/* Soft radial glows (cyan + violet) over the deep base, and a faint dot grid. */
+.app-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(0, 217, 255, 0.06), transparent 60%),
+    radial-gradient(circle at 12% 8%, rgba(0, 217, 255, 0.12), transparent 42%),
+    radial-gradient(circle at 88% 92%, rgba(139, 92, 246, 0.12), transparent 42%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: auto, auto, auto, 28px 28px;
+}
+
+.grid-energy {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* The header rail: a cyan line with a glow, as under the Forge's header. */
+.circuit-rail {
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 0 20px 5px var(--glow-outer);
+}
+
+/* The soft always-on outline around a page's primary container. */
+.glow-shell {
+  border-radius: 16px;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) rgba(0, 217, 255, 0.35),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) rgba(0, 217, 255, 0.18),
+    0 0 calc(var(--glow-f) * 1px) calc(var(--glow-b2) * 1px) rgba(0, 217, 255, 0.08);
+}
+
+/* The surface inside a glow-shell (the Forge's glow-card panel color). */
+.forge-panel {
+  background: rgba(12, 14, 24, 0.94);
+}
+
+.glow-card {
+  background: var(--bg-card);
+  border: var(--border-w) solid var(--border-color);
+  border-radius: 12px;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) var(--glow-outer),
+    0 0 calc(var(--glow-f) * 1px) calc(var(--glow-b2) * 1px) var(--glow-far);
+}
+
+/* Card hover glow: on the card actually under the cursor, and only that one
+   (`:has()` keeps a card whose inner card is hovered from lighting too). */
+.forge-card {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.forge-card:hover:not(:has(.forge-card:hover)) {
+  border-color: var(--border-color) !important;
+  box-shadow:
+    0 0 calc(var(--glow-r) * 1px) var(--glow-inner),
+    0 0 calc(var(--glow-s) * 1px) calc(var(--glow-b1) * 1px) var(--glow-outer) !important;
+}

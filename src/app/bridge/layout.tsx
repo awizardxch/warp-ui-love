@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import Header from "./components/Header"
 import Footer from "./components/Footer"
 import { Button } from "@/components/ui/button"
+import { GridEnergy } from "@/components/GridEnergy"
 
 export default function BridgeUILayout({
   children,
@@ -11,7 +12,9 @@ export default function BridgeUILayout({
 }) {
   return (
     <ClientProvider>
-      <div className="bg-black min-h-screen flex flex-col">
+      {/* The Forge's circuit-board background (components/GridEnergy.tsx). */}
+      <div className="app-background" aria-hidden="true"><GridEnergy /></div>
+      <div className="app-shell min-h-screen flex flex-col">
         <Button variant="outline" className="absolute left-0 backdrop-blur -translate-y-16 focus:translate-y-4 focus:translate-x-4" asChild>
           <a href="#main-content">Skip Navigation</a>
         </Button>
