@@ -32,16 +32,15 @@ export default function StepZero() {
     token.supported.flatMap(info => [info.evmNetworkId, info.coinsetNetworkId])
   )).map((id: string) => NETWORKS.find((n: Network) => n.id === id)!)
 
+  // The form opens Base -> Chia, matching the From/To option lists below (From holds
+  // the EVM chains, To holds Chia). Starting from the token's home chain left From on
+  // Chia, which is not one of its options, so both selects rendered blank.
   const [
     sourceNetworkId, setSourceNetworkId
-  ] = useState(
-    token.sourceNetworkType !== NetworkType.EVM ? token.supported[0].coinsetNetworkId : token.supported[0].evmNetworkId
-  )
+  ] = useState(token.supported[0].evmNetworkId)
   const [
     destinationNetworkId, setDestinationNetworkId
-  ] = useState(
-    token.sourceNetworkType === NetworkType.EVM ? token.supported[0].coinsetNetworkId : token.supported[0].evmNetworkId
-  )
+  ] = useState(token.supported[0].coinsetNetworkId)
   const [
     amount, setAmount
   ] = useState("")
