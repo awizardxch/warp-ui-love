@@ -4,6 +4,7 @@ import XIcon from "@/components/Icons/XIcon"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ArrowUpRight } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { navConfig } from "./navConfig"
@@ -28,7 +29,7 @@ function DesktopNav() {
           {/* Social Icons */}
           <li className="-ml-2">
             <ul className="flex border border-input rounded-md -mr-3.5">
-              <li><Link aria-label="The Forge" title="The Forge" className="transition-colors focus-visible:outline-none ring-offset-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full flex items-center justify-center opacity-80 hover:opacity-100 px-2 hover:bg-input rounded-full aspect-square text-base leading-none" href="https://forge.awizard.dev" target="_blank"><span aria-hidden="true">⚒️</span></Link></li>
+              <li><Link aria-label="The Forge" title="The Forge" className="transition-colors focus-visible:outline-none ring-offset-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full flex items-center justify-center opacity-80 hover:opacity-100 px-2 hover:bg-input rounded-full aspect-square" href="https://forge.awizard.dev" target="_blank"><Image src="/forge-logo.png" alt="" width={64} height={64} unoptimized className="w-5 h-5" /></Link></li>
               <li><Link className="transition-colors focus-visible:outline-none ring-offset-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full flex opacity-80 px-2 hover:bg-input rounded-full aspect-square" href="https://twitter.com/warpdotgreen" target="_blank"><XIcon /></Link></li>
               <li><Link className="transition-colors focus-visible:outline-none ring-offset-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full flex opacity-80 px-2 hover:bg-input rounded-full aspect-square" href="https://github.com/warpdotgreen" target="_blank"><GithubIcon /></Link></li>
             </ul>
