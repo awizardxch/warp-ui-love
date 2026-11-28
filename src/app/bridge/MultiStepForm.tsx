@@ -23,11 +23,11 @@ export function MultiStepForm({
 
   return (
     <div className="max-w-xl flex flex-col justify-center mx-auto w-full break-words grow">
-      <div className="rounded-lg flex flex-col gap-4 p-6 ">
+      <div className="glow-shell forge-panel forge-card rounded-lg flex flex-col gap-4 p-6 mx-4 sm:mx-0">
         {steps.map((step, index) => {
           return (
             <div key={index}>
-              <div className={`w-full rounded-lg p-2 transition-all border bg-accent ${activeStep - 1 == index ? '' : 'opacity-50'}`}>
+              <div className={`forge-card w-full rounded-lg p-2 transition-all border bg-accent ${activeStep - 1 == index ? '' : 'opacity-50'}`}>
                 <div className="flex flex-col-reverse sm:flex-row gap-2 items-start justify-between sm:items-center p-4">
                   <p className="text-xl font-light">{index + 1}. {step.text}</p>
                   {index === 1 && <p className="px-2 rounded-full bg-theme-purple font-light">{step.iconText}</p>}
